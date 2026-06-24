@@ -1,0 +1,132 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows;
+using ClipFlow.Models;
+
+namespace ClipFlow.Services;
+
+/// <summary>
+/// 「クリックでペースト」を実現する。ポップアップ表示でフォーカスが移るため、
+/// 表示直前の前面ウィンドウを記憶 → ペースト時にそれを前面へ戻して Ctrl+V を送る。
+/// </summary>
+public sealed class PasteService
+{
+    private readonly ClipboardMonitor _monitor;
+    private IntPtr _previousWindow;
+
+    public PasteService(ClipboardMonitor monitor) => _monitor = monitor;
+
+    /// <summary>ポップアップを出す直前に呼ぶ。元のアクティブウィンドウを覚える。</summary>
+    public void CaptureForeground() => _previousWindow = NativeMethods.GetForegroundWindow();
+
+    /// <summary>クリップボードへ書き込むだけ（ペーストはしない）。</summary>
+    public bool CopyToClipboard(ClipItem item) => WriteClipboard(item);
+
+    /// <summary>クリップボードへ書き込み → 元ウィンドウへ Ctrl+V を送る。</summary>
+    public async Task PasteAsync(ClipItem item)
+    {
+        if (!WriteClipboard(item))
+            return;
+
+        if (_previousWindow == IntPtr.Zero)
+            return;
+
+        // 元のウィンドウを確実に前面へ戻す（キャレット位置はアプリ側が復元する）
+        RestoreForeground(_previousWindow);
+        await Task.Delay(90); // フォーカス遷移とキャレット復帰待ち
+        SendCtrlV();
+    }
+
+    /// <summary>
+    /// Windows のフォアグラウンド奪取制限を AttachThreadInput で回避し、
+    /// 元ウィンドウを確実にアクティブへ戻す（Win+V / Ditto と同方式）。
+    /// </summary>
+    private static void RestoreForeground(IntPtr target)
+    {
+        var foreground = NativeMethods.GetForegroundWindow();
+        uint targetThread = NativeMethods.GetWindowThreadProcessId(target, out _);
+        uint foreThread = NativeMethods.GetWindowThreadProcessId(foreground, out _);
+        uint thisThread = NativeMethods.GetCurrentThreadId();
+
+        if (foreThread != targetThread)
+            NativeMethods.AttachThreadInput(foreThread, targetThread, true);
+        NativeMethods.AttachThreadInput(thisThread, targetThread, true);
+
+        NativeMethods.SetForegroundWindow(target);
+        NativeMethods.BringWindowToTop(target);
+
+        NativeMethods.AttachThreadInput(thisThread, targetThread, false);
+        if (foreThread != targetThread)
+            NativeMethods.AttachThreadInput(foreThread, targetThread, false);
+    }
+
+    private bool WriteClipboard(ClipItem item)
+    {
+        for (int attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                _monitor.SuppressNext = true; // 自分の書き込みを再キャプチャしない
+                if (item.Kind == ClipKind.Text)
+                {
+                    Clipboard.SetText(item.Text ?? string.Empty);
+                }
+                else
+                {
+                    var img = ImageHelper.LoadFromPath(item.ImagePath);
+                    if (img == null) { _monitor.SuppressNext = false; return false; }
+
+                    // ビットマップ（ペイント/Word/チャット向け）と
+                    // ファイル参照（エクスプローラ向け）の両方を載せる
+                    var data = new DataObject();
+                    data.SetImage(img);
+
+                    var file = ImageHelper.GetPasteableFile(item.ImagePath);
+                    if (file != null)
+                    {
+                        var files = new System.Collections.Specialized.StringCollection { file };
+                        data.SetFileDropList(files);
+                    }
+
+                    Clipboard.SetDataObject(data, true);
+                }
+                return true;
+            }
+            catch
+            {
+                _monitor.SuppressNext = false;
+                Thread.Sleep(40);
+            }
+        }
+        return false;
+    }
+
+    private static void SendCtrlV()
+    {
+        var inputs = new NativeMethods.INPUT[4];
+
+        inputs[0] = KeyDown(NativeMethods.VK_CONTROL);
+        inputs[1] = KeyDown(NativeMethods.VK_V);
+        inputs[2] = KeyUp(NativeMethods.VK_V);
+        inputs[3] = KeyUp(NativeMethods.VK_CONTROL);
+
+        NativeMethods.SendInput((uint)inputs.Length, inputs,
+            System.Runtime.InteropServices.Marshal.SizeOf<NativeMethods.INPUT>());
+    }
+
+    private static NativeMethods.INPUT KeyDown(ushort vk) => new()
+    {
+        type = NativeMethods.INPUT_KEYBOARD,
+        u = new NativeMethods.InputUnion { ki = new NativeMethods.KEYBDINPUT { wVk = vk } }
+    };
+
+    private static NativeMethods.INPUT KeyUp(ushort vk) => new()
+    {
+        type = NativeMethods.INPUT_KEYBOARD,
+        u = new NativeMethods.InputUnion
+        {
+            ki = new NativeMethods.KEYBDINPUT { wVk = vk, dwFlags = NativeMethods.KEYEVENTF_KEYUP }
+        }
+    };
+}

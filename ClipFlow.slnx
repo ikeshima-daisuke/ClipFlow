@@ -1,0 +1,8 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/ClipFlow/ClipFlow.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/ClipFlow.Tests/ClipFlow.Tests.csproj" />
+  </Folder>
+</Solution>
