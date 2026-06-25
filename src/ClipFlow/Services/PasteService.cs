@@ -17,6 +17,9 @@ public sealed class PasteService
 
     public PasteService(ClipboardMonitor monitor) => _monitor = monitor;
 
+    /// <summary>表示直前に記憶した、元のアクティブウィンドウ。</summary>
+    public IntPtr PreviousWindow => _previousWindow;
+
     /// <summary>ポップアップを出す直前に呼ぶ。元のアクティブウィンドウを覚える。</summary>
     public void CaptureForeground() => _previousWindow = NativeMethods.GetForegroundWindow();
 

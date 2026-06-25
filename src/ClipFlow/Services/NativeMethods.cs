@@ -59,6 +59,42 @@ internal static partial class NativeMethods
     [LibraryImport("kernel32.dll")]
     public static partial uint GetCurrentThreadId();
 
+    // ---- モニター / DPI（ポップアップを最後にアクティブな画面へ出すため）----
+    public const uint MONITOR_DEFAULTTONEAREST = 2;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct POINT { public int X; public int Y; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECT { public int left; public int top; public int right; public int bottom; }
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MONITORINFO
+    {
+        public uint cbSize;
+        public RECT rcMonitor;
+        public RECT rcWork;
+        public uint dwFlags;
+    }
+
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr MonitorFromWindow(IntPtr hwnd, uint dwFlags);
+
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr MonitorFromPoint(POINT pt, uint dwFlags);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetMonitorInfoW(IntPtr hMonitor, ref MONITORINFO lpmi);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetCursorPos(out POINT lpPoint);
+
+    // MDT_EFFECTIVE_DPI = 0
+    [LibraryImport("Shcore.dll")]
+    public static partial int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);
+
     // ---- キー入力送信（Ctrl+V）----
     public const ushort VK_CONTROL = 0x11;
     public const ushort VK_V = 0x56;

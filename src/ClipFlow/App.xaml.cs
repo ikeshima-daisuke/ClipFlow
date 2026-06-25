@@ -122,7 +122,7 @@ public partial class App : Application
     private void ShowWindow()
     {
         _paste.CaptureForeground();   // 表示前に元の前面ウィンドウを記憶
-        _window.ShowAndActivate();
+        _window.ShowAndActivate(_paste.PreviousWindow);
     }
 
     private void HideWindow() => _window.Hide();
