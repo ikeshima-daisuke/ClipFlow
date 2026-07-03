@@ -4,6 +4,15 @@ Windows 向けの軽量クリップボード履歴マネージャ。コピーし
 
 ![tray](src/ClipFlow/Assets/clipflow.ico)
 
+## ダウンロード
+
+**[最新版を GitHub Releases から入手](../../releases/latest)**（`ClipFlow-x.y.z-win-x64.zip`）
+
+1. zip を展開して `ClipFlow.exe` をどこか好きな場所に置く（インストーラー不要・.NETランタイムのインストールも不要）
+2. 実行すると初回に **Windows SmartScreen の警告**が出ます（未署名の個人配布アプリのため）。
+   「詳細情報」→「実行」で起動できます。心配な場合はダウンロード元がこのリポジトリであることを確認してから実行してください。
+3. タスクトレイに常駐します。`Ctrl+Shift+V` で呼び出せます。
+
 ## 特長
 
 - 📋 **テキスト / 画像** を自動でキャプチャして履歴化
@@ -51,9 +60,15 @@ dotnet test tests/ClipFlow.Tests/ClipFlow.Tests.csproj
 
 タスクトレイアイコンを右クリック → **「Windows起動時に実行」** で切替できます（レジストリ `HKCU\...\Run`）。
 
-## データ保存先
+## データ保存先・プライバシー
 
-`%APPDATA%\ClipFlow\`（`clipflow.db` と `images/`）
+- `%APPDATA%\ClipFlow\`（`clipflow.db` と `images/`）にローカル保存されるのみで、外部への通信は一切行いません（ネットワークアクセスなし・テレメトリなし）。
+- 履歴は **暗号化されずに平文で保存**されます。パスワードなど機微な情報をコピーした場合は履歴から削除するか、共有PC・バックアップ経由での漏洩に注意してください。
+- ソースコードは公開されているので、動作が気になる方はご自身でビルド・確認できます。
+
+## ライセンス
+
+[MIT License](LICENSE)
 
 ## 構成
 
