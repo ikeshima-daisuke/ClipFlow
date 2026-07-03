@@ -1,0 +1,140 @@
+<svg viewBox="0 0 1000 640" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', 'Yu Gothic UI', sans-serif">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1b1230"/>
+      <stop offset="45%" stop-color="#141a33"/>
+      <stop offset="100%" stop-color="#0d1117"/>
+    </linearGradient>
+    <radialGradient id="glow1" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#5a3cdc" stop-opacity="0.55"/>
+      <stop offset="100%" stop-color="#5a3cdc" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="glow2" cx="50%" cy="50%" r="50%">
+      <stop offset="0%" stop-color="#28aadc" stop-opacity="0.45"/>
+      <stop offset="100%" stop-color="#28aadc" stop-opacity="0"/>
+    </radialGradient>
+    <linearGradient id="thumb" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#5a3cdc"/>
+      <stop offset="100%" stop-color="#28aadc"/>
+    </linearGradient>
+    <linearGradient id="winFill" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#2b2b33" stop-opacity="0.92"/>
+      <stop offset="100%" stop-color="#1e1e24" stop-opacity="0.92"/>
+    </linearGradient>
+    <filter id="soft" x="-50%" y="-50%" width="200%" height="200%">
+      <feGaussianBlur stdDeviation="35"/>
+    </filter>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="8" stdDeviation="18" flood-color="#000000" flood-opacity="0.45"/>
+    </filter>
+  </defs>
+
+  <rect width="1000" height="640" fill="url(#bg)"/>
+  <circle cx="230" cy="180" r="220" fill="url(#glow1)" filter="url(#soft)"/>
+  <circle cx="650" cy="480" r="260" fill="url(#glow2)" filter="url(#soft)"/>
+
+  <!-- Main window -->
+  <g filter="url(#shadow)">
+    <rect x="40" y="30" width="400" height="580" rx="14" fill="url(#winFill)" stroke="#3a3a44" stroke-width="1"/>
+
+    <!-- header -->
+    <g transform="translate(56,52)">
+      <rect x="0" y="0" width="22" height="22" rx="4" fill="#4cc2ff"/>
+      <path d="M5 5 h12 v3 h-12 z M5 10 h12 v2 h-12 z M5 14 h9 v2 h-9 z" fill="#12202b"/>
+      <text x="34" y="17" fill="#f2f2f5" font-size="18" font-weight="600">ClipFlow</text>
+      <g transform="translate(346,-2)" fill="none" stroke="#9a9aa4" stroke-width="1.6" stroke-linecap="round">
+        <path d="M2 4 h20 M8 4 v-2 h8 v2 M6 4 l1.2 17 h13.6 L22 4"/>
+        <path d="M11 9 v9 M17 9 v9"/>
+      </g>
+    </g>
+
+    <!-- search box -->
+    <g transform="translate(56,90)">
+      <rect x="0" y="0" width="368" height="38" rx="8" fill="#111116" stroke="#3d5a6c" stroke-width="1.4"/>
+      <circle cx="20" cy="19" r="6" fill="none" stroke="#8a8a94" stroke-width="1.6"/>
+      <line x1="24.5" y1="23.5" x2="29" y2="28" stroke="#8a8a94" stroke-width="1.6" stroke-linecap="round"/>
+      <text x="36" y="24" fill="#7d7d88" font-size="13">履歴を検索…</text>
+    </g>
+
+    <!-- list items -->
+    <g font-size="13">
+      <!-- item 1: selected, memo -->
+      <g transform="translate(56,140)">
+        <rect x="0" y="0" width="368" height="66" rx="8" fill="#33333c"/>
+        <rect x="0" y="8" width="3" height="50" rx="1.5" fill="#4cc2ff"/>
+        <rect x="12" y="9" width="48" height="48" rx="8" fill="#3a3a44"/>
+        <text x="36" y="38" fill="#c9c9d2" font-size="16" font-weight="600" text-anchor="middle">T</text>
+        <text x="70" y="24" fill="#f2f2f5" font-size="13">明日の定例MTGメモ - リリース v1.0.0 完了報告 -</text>
+        <text x="70" y="41" fill="#f2f2f5" font-size="13">次は winget 登録を検討…</text>
+        <text x="70" y="58" fill="#8a8a94" font-size="11">たった今</text>
+        <g transform="translate(330,20)" fill="none" stroke="#8a8a94" stroke-width="1.5">
+          <path d="M8 0 l3 3 -6 6 -4 1 1 -4 z"/>
+        </g>
+        <g transform="translate(330,38)" stroke="#8a8a94" stroke-width="1.6" stroke-linecap="round">
+          <line x1="0" y1="0" x2="10" y2="10"/>
+          <line x1="10" y1="0" x2="0" y2="10"/>
+        </g>
+      </g>
+
+      <!-- item 2: code -->
+      <g transform="translate(56,212)">
+        <rect x="12" y="9" width="48" height="48" rx="8" fill="#2c2c34"/>
+        <text x="36" y="38" fill="#c9c9d2" font-size="16" font-weight="600" text-anchor="middle">T</text>
+        <text x="70" y="24" fill="#e3e3e8" font-size="13">def clip_summary(text: str) -&gt; str:</text>
+        <text x="70" y="41" fill="#e3e3e8" font-size="13">return text[:80] + "…" if len(text) &gt; 80…</text>
+        <text x="70" y="58" fill="#8a8a94" font-size="11">たった今</text>
+      </g>
+
+      <!-- item 3: memo mail -->
+      <g transform="translate(56,284)">
+        <rect x="12" y="9" width="48" height="48" rx="8" fill="#2c2c34"/>
+        <text x="36" y="38" fill="#c9c9d2" font-size="16" font-weight="600" text-anchor="middle">T</text>
+        <text x="70" y="24" fill="#e3e3e8" font-size="13">件名: 週次定例のリスケについて</text>
+        <text x="70" y="41" fill="#e3e3e8" font-size="13">来週の定例、木曜15:00に変更できますか？</text>
+        <text x="70" y="58" fill="#8a8a94" font-size="11">2分前</text>
+      </g>
+
+      <!-- item 4: TODO -->
+      <g transform="translate(56,356)">
+        <rect x="12" y="9" width="48" height="48" rx="8" fill="#2c2c34"/>
+        <text x="36" y="38" fill="#c9c9d2" font-size="16" font-weight="600" text-anchor="middle">T</text>
+        <text x="70" y="33" fill="#e3e3e8" font-size="13">TODO: リリースノートを英語版も用意する</text>
+        <text x="70" y="58" fill="#8a8a94" font-size="11">3分前</text>
+      </g>
+
+      <!-- item 5: image -->
+      <g transform="translate(56,428)">
+        <rect x="12" y="9" width="48" height="48" rx="8" fill="url(#thumb)"/>
+        <circle cx="30" cy="26" r="8" fill="#ffffff" opacity="0.85"/>
+        <circle cx="48" cy="42" r="5" fill="#ffffff" opacity="0.65"/>
+        <text x="70" y="33" fill="#e3e3e8" font-size="13">画像　320 × 200</text>
+        <text x="70" y="58" fill="#8a8a94" font-size="11">4分前</text>
+      </g>
+
+      <!-- item 6: url -->
+      <g transform="translate(56,500)">
+        <rect x="12" y="9" width="48" height="48" rx="8" fill="#2c2c34"/>
+        <text x="36" y="38" fill="#c9c9d2" font-size="16" font-weight="600" text-anchor="middle">T</text>
+        <text x="70" y="33" fill="#7fd0ff" font-size="13">https://github.com/ikeshima-daisuke/ClipFlow</text>
+        <text x="70" y="58" fill="#8a8a94" font-size="11">5分前</text>
+      </g>
+    </g>
+
+    <!-- footer -->
+    <line x1="56" y1="576" x2="424" y2="576" stroke="#3a3a44" stroke-width="1"/>
+    <text x="56" y="598" fill="#8a8a94" font-size="11">↑↓ 選択　・　Enter 貼付　・　Ctrl+C コピー　・　Esc 閉じる</text>
+  </g>
+
+  <!-- preview popup -->
+  <g filter="url(#shadow)" transform="translate(462,140)">
+    <rect x="0" y="0" width="330" height="176" rx="10" fill="#232329" stroke="#3d3d46" stroke-width="1"/>
+    <text font-size="13.5" fill="#f2f2f5">
+      <tspan x="20" y="34">明日の定例MTGメモ</tspan>
+      <tspan x="20" y="60">- リリース v1.0.0 完了報告</tspan>
+      <tspan x="20" y="84">- 次は winget 登録を検討</tspan>
+      <tspan x="20" y="108">- フィードバックは GitHub Issue で受付</tspan>
+      <tspan x="20" y="132">- UI の微調整（アクセントカラー）</tspan>
+      <tspan x="20" y="152">  は来週着手</tspan>
+    </text>
+  </g>
+</svg>

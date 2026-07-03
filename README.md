@@ -2,7 +2,7 @@
 
 Windows 向けの軽量クリップボード履歴マネージャ。コピーしたテキスト・画像を自動で履歴に溜め、ホットキーでいつでも呼び出して貼り付けられます。
 
-![tray](src/ClipFlow/Assets/clipflow.ico)
+![ClipFlow のスクリーンショット。履歴一覧と、選択項目の全文プレビューポップアップを表示している](docs/assets/screenshot.svg)
 
 ## ダウンロード
 
