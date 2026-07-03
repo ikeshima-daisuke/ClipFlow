@@ -20,6 +20,10 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool RemoveClipboardFormatListener(IntPtr hwnd);
 
+    /// <summary>クリップボード変更ごとに単調増加する番号。自前書き込みのこだま識別に使う。</summary>
+    [LibraryImport("user32.dll")]
+    public static partial uint GetClipboardSequenceNumber();
+
     // ---- グローバルホットキー ----
     public const int WM_HOTKEY = 0x0312;
     public const uint MOD_ALT = 0x0001;

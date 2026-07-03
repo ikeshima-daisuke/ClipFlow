@@ -15,11 +15,16 @@ public sealed class ClipboardMonitor : IDisposable
 {
     private readonly IntPtr _hwnd;
     private readonly HwndSource _source;
-
-    /// <summary>自前でクリップボードを書き換えるときに立てると、その変更を無視する。</summary>
-    public bool SuppressNext { get; set; }
+    private readonly SelfCopyGate _gate = new();
 
     public event Action<ClipItem>? Captured;
+
+    /// <summary>
+    /// 自前でクリップボードへ書き込んだ直後に呼ぶ。書き込み後のシーケンス番号を控え、
+    /// そのこだま（同番号の変更通知）だけを無視する。本物の後続コピーは取りこぼさない。
+    /// </summary>
+    public void SuppressSelfWrite()
+        => _gate.ExpectSelfWrite(NativeMethods.GetClipboardSequenceNumber());
 
     public ClipboardMonitor(IntPtr hwnd)
     {
@@ -42,11 +47,9 @@ public sealed class ClipboardMonitor : IDisposable
 
     private void OnClipboardChanged()
     {
-        if (SuppressNext)
-        {
-            SuppressNext = false;
+        // 自前書き込みのこだまはシーケンス番号で厳密に判定して無視する。
+        if (_gate.ShouldSuppress(NativeMethods.GetClipboardSequenceNumber()))
             return;
-        }
 
         var item = TryCapture();
         if (item != null)

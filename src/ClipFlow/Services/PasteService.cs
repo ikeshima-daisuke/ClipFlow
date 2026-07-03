@@ -70,7 +70,6 @@ public sealed class PasteService
         {
             try
             {
-                _monitor.SuppressNext = true; // 自分の書き込みを再キャプチャしない
                 if (item.Kind == ClipKind.Text)
                 {
                     Clipboard.SetText(item.Text ?? string.Empty);
@@ -78,7 +77,7 @@ public sealed class PasteService
                 else
                 {
                     var img = ImageHelper.LoadFromPath(item.ImagePath);
-                    if (img == null) { _monitor.SuppressNext = false; return false; }
+                    if (img == null) return false;
 
                     // ビットマップ（ペイント/Word/チャット向け）と
                     // ファイル参照（エクスプローラ向け）の両方を載せる
@@ -94,11 +93,12 @@ public sealed class PasteService
 
                     Clipboard.SetDataObject(data, true);
                 }
+                // 書き込み完了後のシーケンス番号を控え、このこだまだけを無視する。
+                _monitor.SuppressSelfWrite();
                 return true;
             }
             catch
             {
-                _monitor.SuppressNext = false;
                 Thread.Sleep(40);
             }
         }
