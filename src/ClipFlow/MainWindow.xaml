@@ -114,7 +114,8 @@
                      Margin="8,0,8,0"
                      ItemsSource="{Binding Items}"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                     ScrollViewer.VerticalScrollBarVisibility="Auto"
+                     SelectionChanged="HistoryList_SelectionChanged">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="Padding" Value="0" />
@@ -217,6 +218,39 @@
                            HorizontalAlignment="Center" FontSize="11"
                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
             </StackPanel>
+
+            <!-- 選択項目の全文プレビュー -->
+            <Popup x:Name="PreviewPopup"
+                   PlacementTarget="{Binding ElementName=HistoryList}"
+                   Placement="Right"
+                   HorizontalOffset="8"
+                   AllowsTransparency="True"
+                   StaysOpen="True"
+                   PopupAnimation="Fade">
+                <Border Width="320" MaxHeight="500"
+                        Padding="14,12"
+                        CornerRadius="8"
+                        Background="{DynamicResource ApplicationBackgroundBrush}"
+                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                        BorderThickness="1">
+                    <Border.Effect>
+                        <DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.3" />
+                    </Border.Effect>
+                    <Grid>
+                        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                                      x:Name="PreviewTextScroll">
+                            <TextBlock x:Name="PreviewText"
+                                       TextWrapping="Wrap"
+                                       FontSize="13"
+                                       Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
+                        </ScrollViewer>
+                        <Image x:Name="PreviewImage"
+                               Stretch="Uniform"
+                               MaxHeight="470"
+                               Visibility="Collapsed" />
+                    </Grid>
+                </Border>
+            </Popup>
         </Grid>
 
         <!-- フッター -->

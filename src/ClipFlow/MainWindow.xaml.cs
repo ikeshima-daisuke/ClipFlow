@@ -17,6 +17,11 @@ public partial class MainWindow : FluentWindow
     public MainWindow()
     {
         InitializeComponent();
+        IsVisibleChanged += (_, _) =>
+        {
+            if (!IsVisible)
+                PreviewPopup.IsOpen = false;
+        };
     }
 
     public void Initialize(MainViewModel vm, Action hide)
@@ -161,5 +166,30 @@ public partial class MainWindow : FluentWindow
             HistoryList.SelectedIndex = 0;
             HistoryList.ScrollIntoView(HistoryList.SelectedItem);
         }
+    }
+
+    /// <summary>選択した履歴の全文（テキスト）または原寸画像をポップアップに表示する。</summary>
+    private void HistoryList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
+    {
+        if (HistoryList.SelectedItem is not ClipItemViewModel vm)
+        {
+            PreviewPopup.IsOpen = false;
+            return;
+        }
+
+        if (vm.IsImage)
+        {
+            PreviewImage.Source = vm.FullImage;
+            PreviewImage.Visibility = Visibility.Visible;
+            PreviewTextScroll.Visibility = Visibility.Collapsed;
+        }
+        else
+        {
+            PreviewText.Text = vm.FullText;
+            PreviewTextScroll.Visibility = Visibility.Visible;
+            PreviewImage.Visibility = Visibility.Collapsed;
+        }
+
+        PreviewPopup.IsOpen = true;
     }
 }
