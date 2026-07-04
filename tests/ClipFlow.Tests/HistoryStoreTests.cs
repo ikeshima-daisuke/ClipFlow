@@ -101,6 +101,84 @@ public class HistoryStoreTests : IDisposable
     }
 
     [Fact]
+    public void Html_and_rtf_round_trip_when_present()
+    {
+        var item = new ClipItem
+        {
+            Kind = ClipKind.Text,
+            Text = "plain",
+            Html = "<html>...</html>",
+            Rtf = @"{\rtf1 ...}",
+            Preview = "plain",
+            Hash = "t:plain",
+            CreatedAt = Base,
+        };
+
+        _store.Add(item);
+
+        var all = _store.GetAll();
+        Assert.Single(all);
+        Assert.Equal("<html>...</html>", all[0].Html);
+        Assert.Equal(@"{\rtf1 ...}", all[0].Rtf);
+    }
+
+    [Fact]
+    public void Html_and_rtf_are_null_when_not_captured()
+    {
+        _store.Add(Text("plain only", 0));
+
+        var all = _store.GetAll();
+        Assert.Null(all[0].Html);
+        Assert.Null(all[0].Rtf);
+    }
+
+    [Fact]
+    public void Files_kind_persists_path_list_in_text()
+    {
+        var paths = new[] { @"C:\docs\a.pdf", @"C:\docs\b.pdf" };
+        var item = new ClipItem
+        {
+            Kind = ClipKind.Files,
+            Text = ClipItem.JoinFilePaths(paths),
+            Preview = "a.pdf 他1件",
+            Hash = "f:test",
+            CreatedAt = Base,
+        };
+
+        _store.Add(item);
+
+        var all = _store.GetAll();
+        Assert.Single(all);
+        Assert.Equal(ClipKind.Files, all[0].Kind);
+        Assert.Equal(paths, ClipItem.SplitFilePaths(all[0].Text));
+    }
+
+    [Fact]
+    public void MaxItems_zero_or_less_means_unlimited()
+    {
+        var unlimited = new HistoryStore(Path.Combine(_dir, "unlimited.db"), Path.Combine(_dir, "unlimited_images"), maxItems: 0);
+        for (int i = 0; i < 150; i++)
+            unlimited.Add(Text($"item{i}", i));
+
+        Assert.Equal(150, unlimited.GetAll().Count);
+    }
+
+    [Fact]
+    public void MaxItems_can_be_raised_at_runtime_but_already_evicted_items_stay_gone()
+    {
+        var limited = new HistoryStore(Path.Combine(_dir, "raise.db"), Path.Combine(_dir, "raise_images"), maxItems: 3);
+        for (int i = 0; i < 5; i++)
+            limited.Add(Text($"item{i}", i));
+        Assert.Equal(3, limited.GetAll().Count); // 上限3で既に2件evict済み
+
+        limited.MaxItems = 0; // 無制限へ変更
+        for (int i = 5; i < 10; i++)
+            limited.Add(Text($"item{i}", i));
+
+        Assert.Equal(8, limited.GetAll().Count); // 残っていた3 + 新規5。evict済みの2件は戻らない
+    }
+
+    [Fact]
     public void Clear_keeps_pinned_when_requested()
     {
         _store.Add(Text("A", 0));

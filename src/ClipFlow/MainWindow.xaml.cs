@@ -36,8 +36,9 @@ public partial class MainWindow : FluentWindow
     {
         PositionOnActiveScreen(activeWindow);
 
-        // 検索状態をリセットして毎回フレッシュに
+        // 検索・種別フィルターをリセットして毎回フレッシュに
         _vm.SearchText = string.Empty;
+        _vm.FilterKind = null;
 
         Show();
         Activate();
@@ -118,10 +119,16 @@ public partial class MainWindow : FluentWindow
                 break;
 
             case Key.Enter:
-                // Enter = 元の場所へ貼り付け（クリップボードにも残る）
+                // Enter = 元の場所へ貼り付け（既定はプレーンテキスト。クリップボードにも残る）
+                // Ctrl+Shift+Enter = 保存されている書式（HTML/RTF）を保持して貼り付け（一覧の「Aa」ボタンと同じ）
                 var pasteTarget = SelectedOrFirst();
                 if (pasteTarget != null)
-                    _vm.PasteCommand.Execute(pasteTarget);
+                {
+                    if (Keyboard.Modifiers == (ModifierKeys.Control | ModifierKeys.Shift))
+                        _vm.PasteWithFormattingCommand.Execute(pasteTarget);
+                    else
+                        _vm.PasteCommand.Execute(pasteTarget);
+                }
                 e.Handled = true;
                 break;
 

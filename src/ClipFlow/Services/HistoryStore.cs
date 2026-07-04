@@ -9,20 +9,24 @@ namespace ClipFlow.Services;
 /// <summary>SQLite による履歴永続化。最大保持件数を超えた古い項目（ピン留め以外）を自動削除。</summary>
 public sealed class HistoryStore
 {
-    public const int MaxItems = 100;
+    public const int DefaultMaxItems = 100;
+
+    /// <summary>保持件数の上限（ピン留め以外）。0以下なら無制限。実行中に変更可能（次回Add/ApplyMaxItemsから反映）。</summary>
+    public int MaxItems { get; set; }
 
     private readonly string _connString;
     private readonly string _imagesDir;
 
-    /// <summary>本番用。%APPDATA%\ClipFlow を使う。</summary>
-    public HistoryStore() : this(AppPaths.DbPath, AppPaths.ImagesDir)
+    /// <summary>本番用。%APPDATA%\ClipFlow を使い、保持件数はユーザー設定（既定100件）に従う。</summary>
+    public HistoryStore() : this(AppPaths.DbPath, AppPaths.ImagesDir, AppSettings.Load().MaxHistoryItems ?? DefaultMaxItems)
     {
         AppPaths.EnsureCreated();
     }
 
-    /// <summary>テスト等で保存先を差し替えるためのコンストラクタ。</summary>
-    public HistoryStore(string dbPath, string imagesDir)
+    /// <summary>テスト等で保存先・保持件数を差し替えるためのコンストラクタ。</summary>
+    public HistoryStore(string dbPath, string imagesDir, int maxItems = DefaultMaxItems)
     {
+        MaxItems = maxItems;
         _imagesDir = imagesDir;
         System.IO.Directory.CreateDirectory(System.IO.Path.GetDirectoryName(dbPath)!);
         System.IO.Directory.CreateDirectory(imagesDir);
@@ -44,22 +48,41 @@ public sealed class HistoryStore
     private void Init()
     {
         using var c = Open();
-        using var cmd = c.CreateCommand();
-        cmd.CommandText = """
-            CREATE TABLE IF NOT EXISTS clips (
-                id         INTEGER PRIMARY KEY AUTOINCREMENT,
-                kind       INTEGER NOT NULL,
-                text       TEXT,
-                image_path TEXT,
-                thumb_path TEXT,
-                preview    TEXT NOT NULL,
-                hash       TEXT NOT NULL,
-                pinned     INTEGER NOT NULL DEFAULT 0,
-                created_at TEXT NOT NULL
-            );
-            CREATE INDEX IF NOT EXISTS idx_clips_hash ON clips(hash);
-            """;
-        cmd.ExecuteNonQuery();
+        using (var cmd = c.CreateCommand())
+        {
+            cmd.CommandText = """
+                CREATE TABLE IF NOT EXISTS clips (
+                    id         INTEGER PRIMARY KEY AUTOINCREMENT,
+                    kind       INTEGER NOT NULL,
+                    text       TEXT,
+                    image_path TEXT,
+                    thumb_path TEXT,
+                    preview    TEXT NOT NULL,
+                    hash       TEXT NOT NULL,
+                    pinned     INTEGER NOT NULL DEFAULT 0,
+                    created_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_clips_hash ON clips(hash);
+                """;
+            cmd.ExecuteNonQuery();
+        }
+        MigrateAddColumnIfMissing(c, "html");
+        MigrateAddColumnIfMissing(c, "rtf");
+    }
+
+    /// <summary>既存DB（旧バージョンで作成済み）に不足カラムがあれば追加する。</summary>
+    private static void MigrateAddColumnIfMissing(SqliteConnection c, string column)
+    {
+        using (var check = c.CreateCommand())
+        {
+            check.CommandText = "SELECT COUNT(*) FROM pragma_table_info('clips') WHERE name = $n;";
+            check.Parameters.AddWithValue("$n", column);
+            if (Convert.ToInt64(check.ExecuteScalar()) > 0)
+                return;
+        }
+        using var alter = c.CreateCommand();
+        alter.CommandText = $"ALTER TABLE clips ADD COLUMN {column} TEXT;";
+        alter.ExecuteNonQuery();
     }
 
     public List<ClipItem> GetAll()
@@ -68,7 +91,7 @@ public sealed class HistoryStore
         using var c = Open();
         using var cmd = c.CreateCommand();
         cmd.CommandText = """
-            SELECT id, kind, text, image_path, thumb_path, preview, hash, pinned, created_at
+            SELECT id, kind, text, image_path, thumb_path, preview, hash, pinned, created_at, html, rtf
             FROM clips
             ORDER BY pinned DESC, created_at DESC;
             """;
@@ -89,6 +112,8 @@ public sealed class HistoryStore
         Hash = r.GetString(6),
         Pinned = r.GetInt32(7) != 0,
         CreatedAt = DateTime.Parse(r.GetString(8)),
+        Html = r.IsDBNull(9) ? null : r.GetString(9),
+        Rtf = r.IsDBNull(10) ? null : r.GetString(10),
     };
 
     /// <summary>
@@ -120,8 +145,8 @@ public sealed class HistoryStore
         using (var ins = c.CreateCommand())
         {
             ins.CommandText = """
-                INSERT INTO clips (kind, text, image_path, thumb_path, preview, hash, pinned, created_at)
-                VALUES ($kind, $text, $img, $thumb, $prev, $hash, $pin, $t);
+                INSERT INTO clips (kind, text, image_path, thumb_path, preview, hash, pinned, created_at, html, rtf)
+                VALUES ($kind, $text, $img, $thumb, $prev, $hash, $pin, $t, $html, $rtf);
                 SELECT last_insert_rowid();
                 """;
             ins.Parameters.AddWithValue("$kind", (int)item.Kind);
@@ -132,6 +157,8 @@ public sealed class HistoryStore
             ins.Parameters.AddWithValue("$hash", item.Hash);
             ins.Parameters.AddWithValue("$pin", item.Pinned ? 1 : 0);
             ins.Parameters.AddWithValue("$t", item.CreatedAt.ToString("o"));
+            ins.Parameters.AddWithValue("$html", (object?)item.Html ?? DBNull.Value);
+            ins.Parameters.AddWithValue("$rtf", (object?)item.Rtf ?? DBNull.Value);
             item.Id = (long)ins.ExecuteScalar()!;
         }
 
@@ -139,9 +166,19 @@ public sealed class HistoryStore
         return item;
     }
 
-    /// <summary>保持上限超過分（ピン留め以外）を古い順に削除し、画像ファイルも消す。</summary>
+    /// <summary>MaxItems の変更を即座に反映させたいときに呼ぶ（上限を減らした場合、超過分をその場で削除）。</summary>
+    public void ApplyMaxItems()
+    {
+        using var c = Open();
+        EnforceLimit(c);
+    }
+
+    /// <summary>保持上限超過分（ピン留め以外）を古い順に削除し、画像ファイルも消す。MaxItems が0以下なら無制限（何もしない）。</summary>
     private void EnforceLimit(SqliteConnection c)
     {
+        if (MaxItems <= 0)
+            return;
+
         var toDelete = new List<(long id, string? img, string? thumb)>();
         using (var sel = c.CreateCommand())
         {

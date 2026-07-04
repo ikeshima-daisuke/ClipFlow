@@ -10,7 +10,7 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <AssemblyName>ClipFlow</AssemblyName>
     <ApplicationIcon>Assets\clipflow.ico</ApplicationIcon>
-    <Version>1.0.0</Version>
+    <Version>1.3.0</Version>
     <Authors>ikeshima</Authors>
     <Product>ClipFlow</Product>
     <Description>Windows 向けの軽量クリップボード履歴マネージャ</Description>

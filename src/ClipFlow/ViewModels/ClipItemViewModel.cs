@@ -26,9 +26,13 @@ public partial class ClipItemViewModel : ObservableObject
 
     public bool IsImage => Item.Kind == ClipKind.Image;
     public bool IsText => Item.Kind == ClipKind.Text;
+    public bool IsFiles => Item.Kind == ClipKind.Files;
     public string Preview => Item.Preview;
 
-    /// <summary>全文（テキストのとき）。プレビューで選択された際にポップアップへ表示する。</summary>
+    /// <summary>コピー元の書式（HTML/RTF）を保持しているか。「書式付きで貼り付け」ボタンの表示条件に使う。</summary>
+    public bool HasFormatting => Item.Html != null || Item.Rtf != null;
+
+    /// <summary>全文（テキストのとき）／ファイルパス一覧（ファイルのとき）。選択時のポップアップ表示用。</summary>
     public string FullText => Item.Text ?? string.Empty;
 
     /// <summary>サムネイル（画像のとき）。初回アクセス時に遅延読み込み。</summary>

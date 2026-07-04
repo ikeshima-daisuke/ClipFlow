@@ -5,7 +5,7 @@
                  xmlns:vm="clr-namespace:ClipFlow.ViewModels"
                  Title="ClipFlow"
                  Icon="pack://application:,,,/Assets/clipflow.ico"
-                 Width="400" Height="580"
+                 Width="400" Height="616"
                  ResizeMode="NoResize"
                  ShowInTaskbar="False"
                  Topmost="True"
@@ -65,10 +65,65 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <!-- 種別フィルターの丸ピルタブ -->
+        <Style x:Key="FilterTabBase" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="12,5" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="Foreground" Value="{DynamicResource TextFillColorSecondaryBrush}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border Background="{TemplateBinding Background}" CornerRadius="12">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="FilterTabAll" TargetType="Button" BasedOn="{StaticResource FilterTabBase}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsFilterAll}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="FilterTabText" TargetType="Button" BasedOn="{StaticResource FilterTabBase}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsFilterText}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="FilterTabImage" TargetType="Button" BasedOn="{StaticResource FilterTabBase}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsFilterImage}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+        <Style x:Key="FilterTabFiles" TargetType="Button" BasedOn="{StaticResource FilterTabBase}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsFilterFiles}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
 
     <Grid Margin="0">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -106,8 +161,20 @@
                     TextChanged="SearchBox_TextChanged"
                     Icon="{ui:SymbolIcon Search24}" />
 
+        <!-- 種別フィルター -->
+        <StackPanel Grid.Row="2" Orientation="Horizontal" Margin="16,0,16,8">
+            <Button Content="すべて" Style="{StaticResource FilterTabAll}"
+                    Command="{Binding SetFilterCommand}" CommandParameter="{x:Null}" />
+            <Button Content="テキスト" Style="{StaticResource FilterTabText}"
+                    Command="{Binding SetFilterCommand}" CommandParameter="Text" />
+            <Button Content="画像" Style="{StaticResource FilterTabImage}"
+                    Command="{Binding SetFilterCommand}" CommandParameter="Image" />
+            <Button Content="ファイル" Style="{StaticResource FilterTabFiles}"
+                    Command="{Binding SetFilterCommand}" CommandParameter="Files" />
+        </StackPanel>
+
         <!-- 履歴一覧 -->
-        <Grid Grid.Row="2">
+        <Grid Grid.Row="3">
             <ListBox x:Name="HistoryList"
                      Background="Transparent"
                      BorderThickness="0"
@@ -165,6 +232,9 @@
                                         <ui:SymbolIcon Symbol="TextField24" FontSize="22"
                                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}"
                                                        Visibility="{Binding IsText, Converter={StaticResource BoolToVis}}" />
+                                        <ui:SymbolIcon Symbol="Folder24" FontSize="22"
+                                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                                       Visibility="{Binding IsFiles, Converter={StaticResource BoolToVis}}" />
                                         <Border CornerRadius="6"
                                                 Visibility="{Binding IsImage, Converter={StaticResource BoolToVis}}">
                                             <Border.Background>
@@ -188,6 +258,14 @@
 
                                 <!-- アクション -->
                                 <StackPanel Grid.Column="2" Orientation="Horizontal" VerticalAlignment="Center">
+                                    <ui:Button Style="{StaticResource GhostIcon}"
+                                               ToolTip="書式（太字・リンクなど）を保持して貼り付け"
+                                               Visibility="{Binding HasFormatting, Converter={StaticResource BoolToVis}}"
+                                               Command="{Binding DataContext.PasteWithFormattingCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                                               CommandParameter="{Binding}">
+                                        <TextBlock Text="Aa" FontSize="13" FontWeight="Bold"
+                                                   Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                    </ui:Button>
                                     <ui:Button Style="{StaticResource GhostIcon}" ToolTip="ピン留め"
                                                Command="{Binding DataContext.TogglePinCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                                                CommandParameter="{Binding}">
@@ -254,12 +332,13 @@
         </Grid>
 
         <!-- フッター -->
-        <Border Grid.Row="3" Padding="16,8"
+        <Border Grid.Row="4" Padding="16,8"
                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
                 BorderThickness="0,1,0,0">
             <TextBlock FontSize="11"
                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                       Text="↑↓ 選択  •  Enter 貼付  •  Ctrl+C コピー  •  Esc 閉じる" />
+                       Text="↑↓ 選択  •  Enter 貼付  •  「Aa」書式付き貼付  •  Ctrl+C コピー  •  Esc 閉じる"
+                       TextWrapping="Wrap" />
         </Border>
     </Grid>
 </ui:FluentWindow>

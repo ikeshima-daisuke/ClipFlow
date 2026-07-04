@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using System.Threading;
 using System.Windows;
 using System.Windows.Interop;
@@ -45,10 +46,16 @@ public sealed class ClipboardMonitor : IDisposable
         return IntPtr.Zero;
     }
 
+    /// <summary>true の間は変更を検知しても履歴へ取り込まない（トレイメニューの「記録を一時停止」用）。</summary>
+    public bool IsPaused { get; set; }
+
     private void OnClipboardChanged()
     {
         // 自前書き込みのこだまはシーケンス番号で厳密に判定して無視する。
         if (_gate.ShouldSuppress(NativeMethods.GetClipboardSequenceNumber()))
+            return;
+
+        if (IsPaused)
             return;
 
         var item = TryCapture();
@@ -63,7 +70,16 @@ public sealed class ClipboardMonitor : IDisposable
         {
             try
             {
-                // 画像を優先（画像コピー時に空テキストも入る場合があるため）
+                // ファイル（エクスプローラのコピー）を最優先。画像は画像コピー時に空テキストも
+                // 入る場合があるため、テキストより先に見る。
+                if (Clipboard.ContainsFileDropList())
+                {
+                    var files = Clipboard.GetFileDropList();
+                    var paths = files?.Cast<string>().Where(p => !string.IsNullOrEmpty(p)).ToArray();
+                    if (paths is { Length: > 0 })
+                        return BuildFilesItem(paths);
+                }
+
                 if (Clipboard.ContainsImage())
                 {
                     var img = Clipboard.GetImage();
@@ -75,7 +91,17 @@ public sealed class ClipboardMonitor : IDisposable
                 {
                     var text = Clipboard.GetText();
                     if (!string.IsNullOrEmpty(text))
-                        return BuildTextItem(text);
+                    {
+                        // 書式（CF_HTML/CF_RTF）があれば併せて保持し、書式付き貼り付けに使う。
+                        // どちらも生の文字列のまま保存し、貼り付け時にそのまま書き戻す。
+                        string? html = Clipboard.ContainsData(DataFormats.Html)
+                            ? Clipboard.GetData(DataFormats.Html) as string
+                            : null;
+                        string? rtf = Clipboard.ContainsData(DataFormats.Rtf)
+                            ? Clipboard.GetData(DataFormats.Rtf) as string
+                            : null;
+                        return BuildTextItem(text, html, rtf);
+                    }
                 }
 
                 return null;
@@ -88,7 +114,7 @@ public sealed class ClipboardMonitor : IDisposable
         return null;
     }
 
-    private static ClipItem BuildTextItem(string text)
+    private static ClipItem BuildTextItem(string text, string? html, string? rtf)
     {
         var preview = text.Replace("\r", " ").Replace("\n", " ").Trim();
         if (preview.Length > 200)
@@ -98,8 +124,27 @@ public sealed class ClipboardMonitor : IDisposable
         {
             Kind = ClipKind.Text,
             Text = text,
+            Html = html,
+            Rtf = rtf,
             Preview = preview,
+            // 重複判定はプレーンテキストのみで行う（書式違いは同一内容として扱う）。
             Hash = "t:" + ImageHelper.Sha256(System.Text.Encoding.UTF8.GetBytes(text)),
+            CreatedAt = DateTime.Now,
+        };
+    }
+
+    private static ClipItem BuildFilesItem(string[] paths)
+    {
+        var joined = ClipItem.JoinFilePaths(paths);
+        var firstName = System.IO.Path.GetFileName(paths[0]);
+        var preview = paths.Length == 1 ? firstName : $"{firstName} 他{paths.Length - 1}件";
+
+        return new ClipItem
+        {
+            Kind = ClipKind.Files,
+            Text = joined,
+            Preview = preview,
+            Hash = "f:" + ImageHelper.Sha256(System.Text.Encoding.UTF8.GetBytes(joined)),
             CreatedAt = DateTime.Now,
         };
     }

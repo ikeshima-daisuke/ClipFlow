@@ -1,4 +1,6 @@
 using System;
+using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
@@ -24,12 +26,15 @@ public sealed class PasteService
     public void CaptureForeground() => _previousWindow = NativeMethods.GetForegroundWindow();
 
     /// <summary>クリップボードへ書き込むだけ（ペーストはしない）。</summary>
-    public bool CopyToClipboard(ClipItem item) => WriteClipboard(item);
+    public bool CopyToClipboard(ClipItem item) => WriteClipboard(item, plainTextOnly: false);
 
-    /// <summary>クリップボードへ書き込み → 元ウィンドウへ Ctrl+V を送る。</summary>
-    public async Task PasteAsync(ClipItem item)
+    /// <summary>
+    /// クリップボードへ書き込み → 元ウィンドウへ Ctrl+V を送る。
+    /// plainTextOnly=false のときだけ、保存されている書式（HTML/RTF）を保持して貼り付ける（既定はプレーンテキストのみ）。
+    /// </summary>
+    public async Task PasteAsync(ClipItem item, bool plainTextOnly = true)
     {
-        if (!WriteClipboard(item))
+        if (!WriteClipboard(item, plainTextOnly))
             return;
 
         if (_previousWindow == IntPtr.Zero)
@@ -64,34 +69,64 @@ public sealed class PasteService
             NativeMethods.AttachThreadInput(foreThread, targetThread, false);
     }
 
-    private bool WriteClipboard(ClipItem item)
+    private bool WriteClipboard(ClipItem item, bool plainTextOnly)
     {
         for (int attempt = 0; attempt < 5; attempt++)
         {
             try
             {
-                if (item.Kind == ClipKind.Text)
+                switch (item.Kind)
                 {
-                    Clipboard.SetText(item.Text ?? string.Empty);
-                }
-                else
-                {
-                    var img = ImageHelper.LoadFromPath(item.ImagePath);
-                    if (img == null) return false;
+                    case ClipKind.Text:
+                        if (plainTextOnly || (item.Html == null && item.Rtf == null))
+                        {
+                            Clipboard.SetText(item.Text ?? string.Empty);
+                        }
+                        else
+                        {
+                            // プレーンテキストと合わせて書式も載せる。貼り付け先が対応する形式を選ぶ
+                            // （Word は RTF、ブラウザ/note.com 等は HTML を優先して読む）。
+                            var textData = new DataObject();
+                            textData.SetText(item.Text ?? string.Empty);
+                            if (item.Html != null)
+                                textData.SetData(DataFormats.Html, item.Html);
+                            if (item.Rtf != null)
+                                textData.SetData(DataFormats.Rtf, item.Rtf);
+                            Clipboard.SetDataObject(textData, true);
+                        }
+                        break;
 
-                    // ビットマップ（ペイント/Word/チャット向け）と
-                    // ファイル参照（エクスプローラ向け）の両方を載せる
-                    var data = new DataObject();
-                    data.SetImage(img);
+                    case ClipKind.Files:
+                        var paths = ClipItem.SplitFilePaths(item.Text);
+                        // コピー元がその後に移動・削除されていたら貼り付けられない（Windows標準の挙動と同じ）
+                        if (paths.Length == 0 || paths.Any(p => !File.Exists(p) && !Directory.Exists(p)))
+                            return false;
 
-                    var file = ImageHelper.GetPasteableFile(item.ImagePath);
-                    if (file != null)
-                    {
-                        var files = new System.Collections.Specialized.StringCollection { file };
-                        data.SetFileDropList(files);
-                    }
+                        var fileList = new System.Collections.Specialized.StringCollection();
+                        fileList.AddRange(paths);
+                        var filesData = new DataObject();
+                        filesData.SetFileDropList(fileList);
+                        Clipboard.SetDataObject(filesData, true);
+                        break;
 
-                    Clipboard.SetDataObject(data, true);
+                    default: // Image
+                        var img = ImageHelper.LoadFromPath(item.ImagePath);
+                        if (img == null) return false;
+
+                        // ビットマップ（ペイント/Word/チャット向け）と
+                        // ファイル参照（エクスプローラ向け）の両方を載せる
+                        var data = new DataObject();
+                        data.SetImage(img);
+
+                        var file = ImageHelper.GetPasteableFile(item.ImagePath);
+                        if (file != null)
+                        {
+                            var imgFiles = new System.Collections.Specialized.StringCollection { file };
+                            data.SetFileDropList(imgFiles);
+                        }
+
+                        Clipboard.SetDataObject(data, true);
+                        break;
                 }
                 // 書き込み完了後のシーケンス番号を控え、このこだまだけを無視する。
                 _monitor.SuppressSelfWrite();

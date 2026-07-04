@@ -20,13 +20,15 @@ dotnet test  tests/ClipFlow.Tests/ClipFlow.Tests.csproj
 
 ## アーキテクチャ
 
-- `Services/ClipboardMonitor` — 隠しウィンドウの HWND に `AddClipboardFormatListener` を張り、`WM_CLIPBOARDUPDATE` でテキスト/画像を取り込む。自前のクリップボード書込みは `SuppressNext` で無視。
+- `Services/ClipboardMonitor` — 隠しウィンドウの HWND に `AddClipboardFormatListener` を張り、`WM_CLIPBOARDUPDATE` でテキスト/画像/ファイル（`CF_HDROP`）を取り込む。自前のクリップボード書込みは `SuppressNext` で無視。ファイルは中身をコピーせず**パスのみ**を `ClipItem.Text` に改行区切りで保存（`ClipItem.JoinFilePaths`/`SplitFilePaths`）。テキストは `CF_HTML`/`CF_RTF` があれば生の文字列のまま `ClipItem.Html`/`Rtf` にも保持（オフセット付きヘッダごと再貼付するので再構築不要）。`IsPaused` が true の間はキャプチャしない（トレイの「記録を一時停止」）。
 - `Services/GlobalHotkey` — `RegisterHotKey`（既定 `Ctrl+Shift+V`）。
-- `Services/HistoryStore` — SQLite。重複はハッシュで先頭へ繰り上げ、上限100超過は古い順に削除。テスト用に dbPath/imagesDir を注入可能。
-- `Services/PasteService` — **表示直前の前面ウィンドウを記憶 → `AttachThreadInput` で確実に前面復帰 → `SendInput` で Ctrl+V**。テキストはビットマップ＋ファイル参照の両方を載せる（エクスプローラ貼付対応）。
+- `Services/HistoryStore` — SQLite。重複はハッシュで先頭へ繰り上げ、`MaxItems`（既定100、0以下で無制限）超過は古い順に削除。`MaxItems` は実行中に変更可能で、`ApplyMaxItems()` を呼べば即座に反映（減らした場合はその場でevict、増やしても消えた項目は戻らない）。`html`/`rtf` 列は `ALTER TABLE` での後方互換マイグレーション込み（`MigrateAddColumnIfMissing`）。テスト用に dbPath/imagesDir/maxItems を注入可能。
+- `Services/PasteService` — **表示直前の前面ウィンドウを記憶 → `AttachThreadInput` で確実に前面復帰 → `SendInput` で Ctrl+V**。画像はビットマップ＋ファイル参照の両方を載せる（エクスプローラ貼付対応）。ファイルはコピー元が移動・削除されていたら貼り付けを中止する。`PasteAsync(item, plainTextOnly: true)` が既定（貼り先の見た目を予測可能にするため常にプレーンテキスト）。`plainTextOnly: false` のときだけ Html/Rtf を併せて書き込む。
 - `Services/StartupService` — `HKCU\...\Run` でスタートアップ登録のON/OFF。
+- `Services/AppSettings` — `%APPDATA%\ClipFlow\settings.json`。`CheckForUpdates` の既定は **false**（このアプリは元々「外部通信なし」を謳っているため、ネットワークに触る機能は必ずオプトインにする）。`MaxHistoryItems` の既定は `HistoryStore.DefaultMaxItems`（100）、`null`/0以下で無制限。トレイメニュー「保持件数の上限」から変更。
+- `Services/UpdateChecker` — GitHub Releases API (`api.github.com`) を叩いて最新タグと現在バージョンを比較。呼ばれない限り通信しない。失敗時は全部 `null` を返して黙る（起動を妨げない）。
 - `Services/NativeMethods` — P/Invoke（`LibraryImport`）。`<AllowUnsafeBlocks>` 必須。
-- `ViewModels` — CommunityToolkit.Mvvm（`[ObservableProperty]` / `[RelayCommand]`）。
+- `ViewModels` — CommunityToolkit.Mvvm（`[ObservableProperty]` / `[RelayCommand]`）。`MainViewModel.FilterKind`（`ClipKind?`、null=すべて）と `SetFilterCommand`（XAMLからは文字列 `"Text"`/`"Image"`/`"Files"`/null で呼ぶ）で種別フィルターを実装。`IsFilterAll`/`IsFilterText`/`IsFilterImage`/`IsFilterFiles` はXAML側のタブ強調表示用の派生bool。ポップアップを開くたびに検索文字列と一緒にリセットされる。`PasteCommand`＝既定（プレーンテキスト）、`PasteWithFormattingCommand`＝書式保持。書式（Html/Rtfのどちらか）を持つ項目だけ `ClipItemViewModel.HasFormatting` が true になり、一覧に「Aa」ボタンを表示（キーボードショートカットだけに頼らない発見しやすさのため）。
 
 ## 落とし穴（テストで固定済み）
 
