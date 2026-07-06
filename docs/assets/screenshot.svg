@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<svg viewBox="0 0 1000 640" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', 'Yu Gothic UI', 'Noto Sans JP', 'Hiragino Sans', sans-serif">
+<svg viewBox="0 0 1000 700" xmlns="http://www.w3.org/2000/svg" font-family="'Segoe UI', 'Yu Gothic UI', 'Noto Sans JP', 'Hiragino Sans', sans-serif">
   <defs>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop offset="0%" stop-color="#1b1230"/>
@@ -30,13 +30,13 @@
     </filter>
   </defs>
 
-  <rect width="1000" height="640" fill="url(#bg)"/>
-  <circle cx="230" cy="180" r="220" fill="url(#glow1)" filter="url(#soft)"/>
-  <circle cx="650" cy="480" r="260" fill="url(#glow2)" filter="url(#soft)"/>
+  <rect width="1000" height="700" fill="url(#bg)"/>
+  <circle cx="230" cy="200" r="220" fill="url(#glow1)" filter="url(#soft)"/>
+  <circle cx="650" cy="520" r="260" fill="url(#glow2)" filter="url(#soft)"/>
 
   <!-- Main window -->
   <g filter="url(#shadow)">
-    <rect x="40" y="30" width="400" height="580" rx="14" fill="url(#winFill)" stroke="#3a3a44" stroke-width="1"/>
+    <rect x="40" y="30" width="400" height="636" rx="14" fill="url(#winFill)" stroke="#3a3a44" stroke-width="1"/>
 
     <!-- header -->
     <g transform="translate(56,52)">
@@ -57,28 +57,47 @@
       <text x="36" y="24" fill="#7d7d88" font-size="13">履歴を検索…</text>
     </g>
 
+    <!-- filter tabs -->
+    <g transform="translate(56,138)" font-size="12">
+      <rect x="0" y="0" width="56" height="28" rx="14" fill="#4cc2ff"/>
+      <text x="28" y="18" fill="#0b1420" text-anchor="middle" font-weight="700">すべて</text>
+
+      <rect x="64" y="0" width="72" height="28" rx="14" fill="transparent"/>
+      <text x="100" y="18" fill="#a9a9b2" text-anchor="middle">テキスト</text>
+
+      <rect x="144" y="0" width="56" height="28" rx="14" fill="transparent"/>
+      <text x="172" y="18" fill="#a9a9b2" text-anchor="middle">画像</text>
+
+      <rect x="208" y="0" width="68" height="28" rx="14" fill="transparent"/>
+      <text x="242" y="18" fill="#a9a9b2" text-anchor="middle">ファイル</text>
+    </g>
+
     <!-- list items -->
     <g font-size="13">
-      <!-- item 1: selected, memo -->
-      <g transform="translate(56,140)">
+      <!-- item 1: selected, memo with formatting -->
+      <g transform="translate(56,178)">
         <rect x="0" y="0" width="368" height="66" rx="8" fill="#33333c"/>
         <rect x="0" y="8" width="3" height="50" rx="1.5" fill="#4cc2ff"/>
         <rect x="12" y="9" width="48" height="48" rx="8" fill="#3a3a44"/>
         <text x="36" y="38" fill="#c9c9d2" font-size="16" font-weight="600" text-anchor="middle">T</text>
-        <text x="70" y="24" fill="#f2f2f5" font-size="13">明日の定例MTGメモ - リリース v1.0.0 完了報告 -</text>
+        <text x="70" y="24" fill="#f2f2f5" font-size="13">明日の定例MTGメモ - リリース v1.5.0 完了報告 -</text>
         <text x="70" y="41" fill="#f2f2f5" font-size="13">次は winget 登録を検討…</text>
         <text x="70" y="58" fill="#8a8a94" font-size="11">たった今</text>
-        <g transform="translate(330,20)" fill="none" stroke="#8a8a94" stroke-width="1.5">
+        <g transform="translate(322,4)">
+          <rect x="0" y="0" width="24" height="18" rx="5" fill="#18242b"/>
+          <text x="12" y="13" fill="#4cc2ff" font-size="10" font-weight="700" text-anchor="middle">Aa</text>
+        </g>
+        <g transform="translate(328,26)" fill="none" stroke="#8a8a94" stroke-width="1.5">
           <path d="M8 0 l3 3 -6 6 -4 1 1 -4 z"/>
         </g>
-        <g transform="translate(330,38)" stroke="#8a8a94" stroke-width="1.6" stroke-linecap="round">
+        <g transform="translate(328,44)" stroke="#8a8a94" stroke-width="1.6" stroke-linecap="round">
           <line x1="0" y1="0" x2="10" y2="10"/>
           <line x1="10" y1="0" x2="0" y2="10"/>
         </g>
       </g>
 
       <!-- item 2: code -->
-      <g transform="translate(56,212)">
+      <g transform="translate(56,250)">
         <rect x="12" y="9" width="48" height="48" rx="8" fill="#2c2c34"/>
         <text x="36" y="38" fill="#c9c9d2" font-size="16" font-weight="600" text-anchor="middle">T</text>
         <text x="70" y="24" fill="#e3e3e8" font-size="13">def clip_summary(text: str) -&gt; str:</text>
@@ -86,17 +105,16 @@
         <text x="70" y="58" fill="#8a8a94" font-size="11">たった今</text>
       </g>
 
-      <!-- item 3: memo mail -->
-      <g transform="translate(56,284)">
+      <!-- item 3: files -->
+      <g transform="translate(56,322)">
         <rect x="12" y="9" width="48" height="48" rx="8" fill="#2c2c34"/>
-        <text x="36" y="38" fill="#c9c9d2" font-size="16" font-weight="600" text-anchor="middle">T</text>
-        <text x="70" y="24" fill="#e3e3e8" font-size="13">件名: 週次定例のリスケについて</text>
-        <text x="70" y="41" fill="#e3e3e8" font-size="13">来週の定例、木曜15:00に変更できますか？</text>
+        <path d="M21 21 h9 l3 4 h13 v17 h-25 z" fill="none" stroke="#c9c9d2" stroke-width="1.8" stroke-linejoin="round"/>
+        <text x="70" y="33" fill="#e3e3e8" font-size="13">提案資料.pptx 他2件</text>
         <text x="70" y="58" fill="#8a8a94" font-size="11">2分前</text>
       </g>
 
       <!-- item 4: TODO -->
-      <g transform="translate(56,356)">
+      <g transform="translate(56,394)">
         <rect x="12" y="9" width="48" height="48" rx="8" fill="#2c2c34"/>
         <text x="36" y="38" fill="#c9c9d2" font-size="16" font-weight="600" text-anchor="middle">T</text>
         <text x="70" y="33" fill="#e3e3e8" font-size="13">TODO: リリースノートを英語版も用意する</text>
@@ -104,7 +122,7 @@
       </g>
 
       <!-- item 5: image -->
-      <g transform="translate(56,428)">
+      <g transform="translate(56,466)">
         <rect x="12" y="9" width="48" height="48" rx="8" fill="url(#thumb)"/>
         <circle cx="30" cy="26" r="8" fill="#ffffff" opacity="0.85"/>
         <circle cx="48" cy="42" r="5" fill="#ffffff" opacity="0.65"/>
@@ -113,7 +131,7 @@
       </g>
 
       <!-- item 6: url -->
-      <g transform="translate(56,500)">
+      <g transform="translate(56,538)">
         <rect x="12" y="9" width="48" height="48" rx="8" fill="#2c2c34"/>
         <text x="36" y="38" fill="#c9c9d2" font-size="16" font-weight="600" text-anchor="middle">T</text>
         <text x="70" y="33" fill="#7fd0ff" font-size="13">https://github.com/ikeshima-daisuke/ClipFlow</text>
@@ -122,16 +140,16 @@
     </g>
 
     <!-- footer -->
-    <line x1="56" y1="576" x2="424" y2="576" stroke="#3a3a44" stroke-width="1"/>
-    <text x="56" y="598" fill="#8a8a94" font-size="11">↑↓ 選択　・　Enter 貼付　・　Ctrl+C コピー　・　Esc 閉じる</text>
+    <line x1="56" y1="622" x2="424" y2="622" stroke="#3a3a44" stroke-width="1"/>
+    <text x="56" y="644" fill="#8a8a94" font-size="11">↑↓ 選択　・　Enter 貼付　・　「Aa」書式付き貼付　・　Esc 閉じる</text>
   </g>
 
   <!-- preview popup -->
-  <g filter="url(#shadow)" transform="translate(462,140)">
+  <g filter="url(#shadow)" transform="translate(462,178)">
     <rect x="0" y="0" width="330" height="176" rx="10" fill="#232329" stroke="#3d3d46" stroke-width="1"/>
     <text font-size="13.5" fill="#f2f2f5">
       <tspan x="20" y="34">明日の定例MTGメモ</tspan>
-      <tspan x="20" y="60">- リリース v1.0.0 完了報告</tspan>
+      <tspan x="20" y="60">- リリース v1.5.0 完了報告</tspan>
       <tspan x="20" y="84">- 次は winget 登録を検討</tspan>
       <tspan x="20" y="108">- フィードバックは GitHub Issue で受付</tspan>
       <tspan x="20" y="132">- UI の微調整（アクセントカラー）</tspan>
