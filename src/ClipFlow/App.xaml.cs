@@ -1,7 +1,5 @@
 using System;
-using System.Diagnostics;
 using System.Threading;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Interop;
 using ClipFlow.Services;
@@ -21,7 +19,9 @@ public partial class App : Application
     private MainWindow _window = null!;
     private TaskbarIcon _tray = null!;
     private AppSettings _settings = null!;
-    private string? _pendingUpdateUrl;
+    private System.Windows.Controls.ContextMenu _trayMenu = null!;
+    private System.Windows.Controls.MenuItem _openItem = null!;
+    private System.Windows.Controls.MenuItem _pauseItem = null!;
 
     protected override void OnStartup(StartupEventArgs e)
     {
@@ -43,6 +43,13 @@ public partial class App : Application
 
         // ウィンドウは作るが表示しない。HWND だけ確保してリスナーを張る。
         _window = new MainWindow();
+
+        // 最後に手動リサイズしたサイズを復元（作業領域を超える値は画面内に収まるよう抑える）
+        if (_settings.WindowWidth is double savedWidth && savedWidth > 0)
+            _window.Width = Math.Min(savedWidth, SystemParameters.WorkArea.Width);
+        if (_settings.WindowHeight is double savedHeight && savedHeight > 0)
+            _window.Height = Math.Min(savedHeight, SystemParameters.WorkArea.Height);
+
         var handle = new WindowInteropHelper(_window).EnsureHandle();
 
         _monitor = new ClipboardMonitor(handle);
@@ -52,21 +59,18 @@ public partial class App : Application
 
         _monitor.Captured += item => _vm.OnCaptured(item);
 
-        // 既定ホットキー: Ctrl+Shift+V
-        _hotkey = new GlobalHotkey(handle,
-            NativeMethods.MOD_CONTROL | NativeMethods.MOD_SHIFT, NativeMethods.VK_V);
+        // ユーザー設定のホットキー（既定 Ctrl+Shift+V）
+        _hotkey = new GlobalHotkey(handle, _settings.HotkeyModifiers, _settings.HotkeyVirtualKey);
         _hotkey.Pressed += ToggleWindow;
 
         SetupTray();
+        RefreshHotkeyDisplays();
 
         if (!_hotkey.IsRegistered)
             _tray.ShowBalloonTip("ClipFlow",
-                "ホットキー Ctrl+Shift+V を登録できませんでした（他アプリが使用中）。トレイアイコンから開けます。",
+                $"ホットキー {HotkeyFormat.Format(_settings.HotkeyModifiers, _settings.HotkeyVirtualKey)} を登録できませんでした" +
+                "（他アプリが使用中）。トレイアイコンから開けます。",
                 BalloonIcon.Warning);
-
-        // オプトイン設定。既定はOFFで、有効化した場合のみ起動時にGitHubへ問い合わせる。
-        if (_settings.CheckForUpdates)
-            _ = CheckForUpdatesAsync(silent: true);
     }
 
     private void SetupTray()
@@ -77,32 +81,28 @@ public partial class App : Application
             Icon = LoadTrayIcon(),
         };
         _tray.TrayMouseDoubleClick += (_, _) => ToggleWindow();
-        _tray.TrayBalloonTipClicked += (_, _) =>
-        {
-            if (_pendingUpdateUrl != null)
-                OpenUrl(_pendingUpdateUrl);
-        };
 
-        var menu = new System.Windows.Controls.ContextMenu();
+        // StaysOpen=true: メニュー項目のクリックでは閉じず、メニュー外をクリックしたときだけ閉じる
+        // （WPFのContextMenuが持つ標準機能。Popupの再オープンのような自前実装は不要）。
+        var menu = new System.Windows.Controls.ContextMenu { StaysOpen = true };
+        _trayMenu = menu;
 
-        var openItem = new System.Windows.Controls.MenuItem { Header = "履歴を開く (Ctrl+Shift+V)" };
-        openItem.Click += (_, _) => ToggleWindow();
-        menu.Items.Add(openItem);
+        _openItem = new System.Windows.Controls.MenuItem();
+        _openItem.Click += (_, _) => ToggleWindow();
+        menu.Items.Add(_openItem);
 
-        var pauseItem = new System.Windows.Controls.MenuItem
+        _pauseItem = new System.Windows.Controls.MenuItem
         {
             Header = "記録を一時停止",
             IsCheckable = true,
             IsChecked = false,
         };
-        pauseItem.Click += (_, _) =>
+        _pauseItem.Click += (_, _) =>
         {
-            _monitor.IsPaused = pauseItem.IsChecked;
-            _tray.ToolTipText = pauseItem.IsChecked
-                ? "ClipFlow — 記録一時停止中"
-                : "ClipFlow — クリップボード履歴 (Ctrl+Shift+V)";
+            _monitor.IsPaused = _pauseItem.IsChecked;
+            RefreshHotkeyDisplays();
         };
-        menu.Items.Add(pauseItem);
+        menu.Items.Add(_pauseItem);
 
         var clearItem = new System.Windows.Controls.MenuItem { Header = "履歴をクリア（ピン留め以外）" };
         clearItem.Click += (_, _) => _vm.ClearAllCommand.Execute(null);
@@ -119,24 +119,9 @@ public partial class App : Application
 
         menu.Items.Add(BuildMaxItemsMenu());
 
-        menu.Items.Add(new System.Windows.Controls.Separator());
-
-        var autoCheckItem = new System.Windows.Controls.MenuItem
-        {
-            Header = "起動時に更新を自動確認する（GitHubへ接続）",
-            IsCheckable = true,
-            IsChecked = _settings.CheckForUpdates,
-        };
-        autoCheckItem.Click += (_, _) =>
-        {
-            _settings.CheckForUpdates = autoCheckItem.IsChecked;
-            _settings.Save();
-        };
-        menu.Items.Add(autoCheckItem);
-
-        var checkNowItem = new System.Windows.Controls.MenuItem { Header = "今すぐ更新を確認" };
-        checkNowItem.Click += (_, _) => _ = CheckForUpdatesAsync(silent: false);
-        menu.Items.Add(checkNowItem);
+        var hotkeyItem = new System.Windows.Controls.MenuItem { Header = "ショートカットを変更..." };
+        hotkeyItem.Click += (_, _) => ShowHotkeyDialog();
+        menu.Items.Add(hotkeyItem);
 
         menu.Items.Add(new System.Windows.Controls.Separator());
 
@@ -145,6 +130,30 @@ public partial class App : Application
         menu.Items.Add(exitItem);
 
         _tray.ContextMenu = menu;
+    }
+
+    /// <summary>トレイのツールチップ・「履歴を開く」項目のラベルを、現在のホットキー表示に合わせて更新する。</summary>
+    private void RefreshHotkeyDisplays()
+    {
+        var label = HotkeyFormat.Format(_settings.HotkeyModifiers, _settings.HotkeyVirtualKey);
+        _openItem.Header = $"履歴を開く ({label})";
+        _tray.ToolTipText = _monitor.IsPaused
+            ? "ClipFlow — 記録一時停止中"
+            : $"ClipFlow — クリップボード履歴 ({label})";
+    }
+
+    /// <summary>ショートカットキーのキャプチャダイアログを表示し、確定すれば設定を保存する。</summary>
+    private void ShowHotkeyDialog()
+    {
+        var dialog = new HotkeyDialog(_settings.HotkeyModifiers, _settings.HotkeyVirtualKey,
+            (mods, vk) => _hotkey.Rebind(mods, vk));
+        if (dialog.ShowDialog() == true)
+        {
+            _settings.HotkeyModifiers = dialog.ResultModifiers;
+            _settings.HotkeyVirtualKey = dialog.ResultVirtualKey;
+            _settings.Save();
+            RefreshHotkeyDisplays();
+        }
     }
 
     /// <summary>保持件数（ピン留め以外）の上限を選ぶサブメニュー。無制限も選べる。</summary>
@@ -185,32 +194,6 @@ public partial class App : Application
         return root;
     }
 
-    /// <summary>
-    /// GitHub Releases の最新版を確認する。silent=true（起動時の自動確認）では
-    /// 「最新版です」の通知は出さず、更新が見つかったときだけバルーンを出す。
-    /// </summary>
-    private async Task CheckForUpdatesAsync(bool silent)
-    {
-        var info = await UpdateChecker.CheckAsync();
-        if (info != null)
-        {
-            _pendingUpdateUrl = info.ReleaseUrl;
-            _tray.ShowBalloonTip("ClipFlowの更新があります",
-                $"v{info.Version} が公開されています。このバルーンをクリックすると配布ページを開きます。",
-                BalloonIcon.Info);
-        }
-        else if (!silent)
-        {
-            _tray.ShowBalloonTip("ClipFlow", "現在お使いのバージョンが最新です。", BalloonIcon.Info);
-        }
-    }
-
-    private static void OpenUrl(string url)
-    {
-        try { Process.Start(new ProcessStartInfo(url) { UseShellExecute = true }); }
-        catch { /* ブラウザ起動失敗は無視 */ }
-    }
-
     /// <summary>埋め込みリソースの .ico からトレイ用アイコンを読み込む。</summary>
     private static System.Drawing.Icon LoadTrayIcon()
     {
@@ -239,7 +222,14 @@ public partial class App : Application
         _window.ShowAndActivate(_paste.PreviousWindow);
     }
 
-    private void HideWindow() => _window.Hide();
+    private void HideWindow()
+    {
+        // ユーザーが手動でリサイズしていれば、次回もそのサイズで開けるように覚えておく
+        _settings.WindowWidth = _window.Width;
+        _settings.WindowHeight = _window.Height;
+        _settings.Save();
+        _window.Hide();
+    }
 
     protected override void OnExit(ExitEventArgs e)
     {

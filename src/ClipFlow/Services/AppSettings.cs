@@ -4,21 +4,23 @@ using System.Text.Json;
 
 namespace ClipFlow.Services;
 
-/// <summary>
-/// ユーザー設定（%APPDATA%\ClipFlow\settings.json）。
-/// 既定はすべて無効・無通信側（オプトイン）にしておく。
-/// </summary>
+/// <summary>ユーザー設定（%APPDATA%\ClipFlow\settings.json）。ClipFlowは外部への通信を一切行わない。</summary>
 public sealed class AppSettings
 {
-    /// <summary>
-    /// 起動時にGitHub Releasesへ最新バージョンを問い合わせるか。
-    /// 既定は false（ClipFlowは既定でネットワーク通信を一切行わない方針のため）。
-    /// トレイメニューからいつでもON/OFFでき、OFFのときも手動の「更新を確認」は都度の明示操作として利用可。
-    /// </summary>
-    public bool CheckForUpdates { get; set; }
-
     /// <summary>保持件数の上限（ピン留め以外）。0以下または null で無制限。既定は100件。</summary>
     public int? MaxHistoryItems { get; set; } = HistoryStore.DefaultMaxItems;
+
+    /// <summary>履歴ポップアップを呼び出すグローバルホットキーの修飾キー（Win32 MOD_* のビットOR）。既定は Ctrl+Shift。</summary>
+    public uint HotkeyModifiers { get; set; } = NativeMethods.MOD_CONTROL | NativeMethods.MOD_SHIFT;
+
+    /// <summary>グローバルホットキーの仮想キーコード。既定は 'V'。</summary>
+    public uint HotkeyVirtualKey { get; set; } = NativeMethods.VK_V;
+
+    /// <summary>履歴ポップアップの最後のサイズ（DIP）。null なら XAML の既定サイズを使う。</summary>
+    public double? WindowWidth { get; set; }
+
+    /// <summary>履歴ポップアップの最後のサイズ（DIP）。null なら XAML の既定サイズを使う。</summary>
+    public double? WindowHeight { get; set; }
 
     private static string FilePath => Path.Combine(AppPaths.Root, "settings.json");
 
