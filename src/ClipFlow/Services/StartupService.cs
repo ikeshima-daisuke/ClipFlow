@@ -38,4 +38,22 @@ public static class StartupService
         if (enabled) Enable();
         else Disable();
     }
+
+    /// <summary>
+    /// 登録済みパスがexeの現在地と食い違っていたら（フォルダ移動などで）現在のパスへ上書きする。
+    /// 未登録（スタートアップ無効）の場合は何もしない。
+    /// </summary>
+    public static void SyncPathIfEnabled()
+    {
+        var exe = Environment.ProcessPath;
+        if (string.IsNullOrEmpty(exe)) return;
+
+        using var key = Registry.CurrentUser.OpenSubKey(RunKey, writable: true);
+        if (key?.GetValue(ValueName) is not string registered) return;
+
+        if (registered != $"\"{exe}\"")
+        {
+            key.SetValue(ValueName, $"\"{exe}\"");
+        }
+    }
 }

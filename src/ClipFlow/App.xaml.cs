@@ -41,6 +41,9 @@ public partial class App : Application
         _store = new HistoryStore();
         _settings = AppSettings.Load();
 
+        // フォルダ移動などでスタートアップ登録パスが古くなっていたら現在地に合わせて修復
+        StartupService.SyncPathIfEnabled();
+
         // ウィンドウは作るが表示しない。HWND だけ確保してリスナーを張る。
         _window = new MainWindow();
 
