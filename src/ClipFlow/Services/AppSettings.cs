@@ -16,6 +16,12 @@ public sealed class AppSettings
     /// <summary>グローバルホットキーの仮想キーコード。既定は 'V'。</summary>
     public uint HotkeyVirtualKey { get; set; } = NativeMethods.VK_V;
 
+    /// <summary>true なら組み合わせではなく修飾キー単体の連打（<see cref="HotkeyDoubleTapModifier"/>）で呼び出す。既定は false。</summary>
+    public bool HotkeyIsDoubleTap { get; set; } = false;
+
+    /// <summary>連打モードで監視する修飾キー（単一の MOD_* ビット）。<see cref="HotkeyIsDoubleTap"/> が true のときのみ使う。</summary>
+    public uint HotkeyDoubleTapModifier { get; set; } = NativeMethods.MOD_CONTROL;
+
     /// <summary>履歴ポップアップの最後のサイズ（DIP）。null なら XAML の既定サイズを使う。</summary>
     public double? WindowWidth { get; set; }
 

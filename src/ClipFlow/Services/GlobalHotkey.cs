@@ -7,7 +7,7 @@ namespace ClipFlow.Services;
 /// グローバルホットキー登録。既定は Ctrl+Shift+V。
 /// 指定 HWND のメッセージループで WM_HOTKEY を拾って通知する。
 /// </summary>
-internal sealed class GlobalHotkey : IDisposable
+internal sealed class GlobalHotkey : IHotkeyTrigger
 {
     private const int HotkeyId = 0xC1F0;
 

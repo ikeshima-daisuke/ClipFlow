@@ -13,7 +13,8 @@ public partial class App : Application
     private Mutex? _singleInstance;
     private HistoryStore _store = null!;
     private ClipboardMonitor _monitor = null!;
-    private GlobalHotkey _hotkey = null!;
+    private IHotkeyTrigger _hotkey = null!;
+    private IntPtr _handle;
     private PasteService _paste = null!;
     private MainViewModel _vm = null!;
     private MainWindow _window = null!;
@@ -53,17 +54,17 @@ public partial class App : Application
         if (_settings.WindowHeight is double savedHeight && savedHeight > 0)
             _window.Height = Math.Min(savedHeight, SystemParameters.WorkArea.Height);
 
-        var handle = new WindowInteropHelper(_window).EnsureHandle();
+        _handle = new WindowInteropHelper(_window).EnsureHandle();
 
-        _monitor = new ClipboardMonitor(handle);
+        _monitor = new ClipboardMonitor(_handle);
         _paste = new PasteService(_monitor);
         _vm = new MainViewModel(_store, _paste, HideWindow);
         _window.Initialize(_vm, HideWindow);
 
         _monitor.Captured += item => _vm.OnCaptured(item);
 
-        // ユーザー設定のホットキー（既定 Ctrl+Shift+V）
-        _hotkey = new GlobalHotkey(handle, _settings.HotkeyModifiers, _settings.HotkeyVirtualKey);
+        // ユーザー設定のホットキー（既定 Ctrl+Shift+V。連打モードも選べる）
+        _hotkey = CreateHotkeyTrigger(_handle, CurrentSpec());
         _hotkey.Pressed += ToggleWindow;
 
         SetupTray();
@@ -71,9 +72,71 @@ public partial class App : Application
 
         if (!_hotkey.IsRegistered)
             _tray.ShowBalloonTip("ClipFlow",
-                $"ホットキー {HotkeyFormat.Format(_settings.HotkeyModifiers, _settings.HotkeyVirtualKey)} を登録できませんでした" +
+                $"ホットキー {HotkeyFormat.Format(CurrentSpec())} を登録できませんでした" +
                 "（他アプリが使用中）。トレイアイコンから開けます。",
                 BalloonIcon.Warning);
+    }
+
+    private static IHotkeyTrigger CreateHotkeyTrigger(IntPtr handle, HotkeySpec spec) => spec.IsDoubleTap
+        ? new ModifierTapHotkey(spec.Modifiers)
+        : new GlobalHotkey(handle, spec.Modifiers, spec.VirtualKey);
+
+    private HotkeySpec CurrentSpec() => _settings.HotkeyIsDoubleTap
+        ? HotkeySpec.DoubleTap(_settings.HotkeyDoubleTapModifier)
+        : HotkeySpec.Combo(_settings.HotkeyModifiers, _settings.HotkeyVirtualKey);
+
+    private void SaveHotkeySpec(HotkeySpec spec)
+    {
+        _settings.HotkeyIsDoubleTap = spec.IsDoubleTap;
+        if (spec.IsDoubleTap)
+            _settings.HotkeyDoubleTapModifier = spec.Modifiers;
+        else
+        {
+            _settings.HotkeyModifiers = spec.Modifiers;
+            _settings.HotkeyVirtualKey = spec.VirtualKey;
+        }
+        _settings.Save();
+    }
+
+    /// <summary>
+    /// ダイアログから渡された設定を実際に登録してみる。モードが変わらない場合は既存のトリガーに
+    /// Rebind するだけ、モードが変わる場合（組み合わせ⇔連打）は作り直す。
+    /// </summary>
+    private bool TryApplyHotkey(HotkeySpec spec)
+    {
+        if (spec.IsDoubleTap)
+        {
+            if (_hotkey is ModifierTapHotkey tap)
+            {
+                tap.Rebind(spec.Modifiers);
+                return true;
+            }
+
+            var newTap = new ModifierTapHotkey(spec.Modifiers);
+            if (!newTap.IsRegistered)
+            {
+                newTap.Dispose();
+                return false;
+            }
+            _hotkey.Dispose();
+            newTap.Pressed += ToggleWindow;
+            _hotkey = newTap;
+            return true;
+        }
+
+        if (_hotkey is GlobalHotkey combo)
+            return combo.Rebind(spec.Modifiers, spec.VirtualKey);
+
+        var newCombo = new GlobalHotkey(_handle, spec.Modifiers, spec.VirtualKey);
+        if (!newCombo.IsRegistered)
+        {
+            newCombo.Dispose();
+            return false;
+        }
+        _hotkey.Dispose();
+        newCombo.Pressed += ToggleWindow;
+        _hotkey = newCombo;
+        return true;
     }
 
     private void SetupTray()
@@ -138,7 +201,7 @@ public partial class App : Application
     /// <summary>トレイのツールチップ・「履歴を開く」項目のラベルを、現在のホットキー表示に合わせて更新する。</summary>
     private void RefreshHotkeyDisplays()
     {
-        var label = HotkeyFormat.Format(_settings.HotkeyModifiers, _settings.HotkeyVirtualKey);
+        var label = HotkeyFormat.Format(CurrentSpec());
         _openItem.Header = $"履歴を開く ({label})";
         _tray.ToolTipText = _monitor.IsPaused
             ? "ClipFlow — 記録一時停止中"
@@ -148,13 +211,10 @@ public partial class App : Application
     /// <summary>ショートカットキーのキャプチャダイアログを表示し、確定すれば設定を保存する。</summary>
     private void ShowHotkeyDialog()
     {
-        var dialog = new HotkeyDialog(_settings.HotkeyModifiers, _settings.HotkeyVirtualKey,
-            (mods, vk) => _hotkey.Rebind(mods, vk));
+        var dialog = new HotkeyDialog(CurrentSpec(), TryApplyHotkey);
         if (dialog.ShowDialog() == true)
         {
-            _settings.HotkeyModifiers = dialog.ResultModifiers;
-            _settings.HotkeyVirtualKey = dialog.ResultVirtualKey;
-            _settings.Save();
+            SaveHotkeySpec(dialog.Result);
             RefreshHotkeyDisplays();
         }
     }

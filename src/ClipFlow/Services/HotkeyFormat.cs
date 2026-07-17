@@ -35,4 +35,19 @@ internal static class HotkeyFormat
 
         return string.Join("+", parts);
     }
+
+    /// <summary>組み合わせ・連打の両モードに対応した表示文字列を作る。</summary>
+    public static string Format(HotkeySpec spec) => spec.IsDoubleTap
+        ? $"{ModifierName(spec.Modifiers)}連打"
+        : Format(spec.Modifiers, spec.VirtualKey);
+
+    /// <summary>単一の MOD_* ビットから "Ctrl" のような表示名を作る（連打モードの対象キー表示用）。</summary>
+    public static string ModifierName(uint modifierBit) => modifierBit switch
+    {
+        NativeMethods.MOD_CONTROL => "Ctrl",
+        NativeMethods.MOD_ALT => "Alt",
+        NativeMethods.MOD_SHIFT => "Shift",
+        NativeMethods.MOD_WIN => "Win",
+        _ => "?",
+    };
 }

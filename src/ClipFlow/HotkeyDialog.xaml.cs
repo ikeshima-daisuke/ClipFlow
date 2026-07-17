@@ -1,5 +1,6 @@
 using System;
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using ClipFlow.Services;
 using Wpf.Ui.Controls;
@@ -8,26 +9,62 @@ namespace ClipFlow;
 
 /// <summary>
 /// グローバルホットキーをキー入力でキャプチャして変更するダイアログ。
+/// 「組み合わせ」（Ctrl+Shift+V 等）と「連打」（Ctrl連打 等）の2モードを切り替えられる。
 /// 実際の登録可否（他アプリとの競合）は保存時に <see cref="_tryApply"/> で判定する。
 /// </summary>
 public partial class HotkeyDialog : FluentWindow
 {
-    private readonly Func<uint, uint, bool> _tryApply;
+    private const string ComboModeDescription = "履歴ポップアップを呼び出すショートカットキーを入力してください";
+    private const string DoubleTapModeDescription = "選んだキーを素早く2回押すとポップアップを呼び出します";
+
+    private readonly Func<HotkeySpec, bool> _tryApply;
     private ModifierKeys _pendingModifiers = ModifierKeys.None;
     private Key _pendingKey = Key.None;
+    private uint _pendingDoubleTapModifier = NativeMethods.MOD_CONTROL;
 
-    public uint ResultModifiers { get; private set; }
-    public uint ResultVirtualKey { get; private set; }
+    public HotkeySpec Result { get; private set; }
 
-    /// <param name="currentModifiers">現在のホットキーの修飾キー（表示用）。</param>
-    /// <param name="currentVirtualKey">現在のホットキーの仮想キー（表示用）。</param>
+    /// <param name="current">現在のホットキー設定（表示用）。</param>
     /// <param name="tryApply">実際に登録を試みるコールバック。成功したときだけダイアログを閉じる。</param>
-    public HotkeyDialog(uint currentModifiers, uint currentVirtualKey, Func<uint, uint, bool> tryApply)
+    public HotkeyDialog(HotkeySpec current, Func<HotkeySpec, bool> tryApply)
     {
         InitializeComponent();
         _tryApply = tryApply;
-        ComboText.Text = HotkeyFormat.Format(currentModifiers, currentVirtualKey);
+
+        if (current.IsDoubleTap)
+        {
+            _pendingDoubleTapModifier = current.Modifiers;
+            DoubleTapModeRadio.IsChecked = true;
+            SelectDoubleTapCombo(current.Modifiers);
+        }
+        else
+        {
+            ComboText.Text = HotkeyFormat.Format(current.Modifiers, current.VirtualKey);
+        }
+
         Loaded += (_, _) => CaptureBox.Focus();
+    }
+
+    private void ComboModeRadio_Checked(object sender, RoutedEventArgs e)
+    {
+        if (CaptureBox == null) return; // InitializeComponent中の既定値設定による発火を無視
+        CaptureBox.Visibility = Visibility.Visible;
+        DoubleTapCombo.Visibility = Visibility.Collapsed;
+        DescriptionText.Text = ComboModeDescription;
+        HideError();
+        SaveButton.IsEnabled = _pendingKey != Key.None;
+    }
+
+    private void DoubleTapModeRadio_Checked(object sender, RoutedEventArgs e)
+    {
+        if (CaptureBox == null) return;
+        CaptureBox.Visibility = Visibility.Collapsed;
+        DoubleTapCombo.Visibility = Visibility.Visible;
+        DescriptionText.Text = DoubleTapModeDescription;
+        HideError();
+        if (DoubleTapCombo.SelectedIndex < 0)
+            DoubleTapCombo.SelectedIndex = 0;
+        SaveButton.IsEnabled = true;
     }
 
     private void CaptureBox_PreviewKeyDown(object sender, KeyEventArgs e)
@@ -59,6 +96,42 @@ public partial class HotkeyDialog : FluentWindow
         Key.LWin or Key.RWin or
         Key.System;
 
+    private void DoubleTapCombo_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        if (DoubleTapCombo.SelectedItem is not ComboBoxItem item) return;
+
+        _pendingDoubleTapModifier = (string)item.Tag switch
+        {
+            "Control" => NativeMethods.MOD_CONTROL,
+            "Shift" => NativeMethods.MOD_SHIFT,
+            "Alt" => NativeMethods.MOD_ALT,
+            "Win" => NativeMethods.MOD_WIN,
+            _ => NativeMethods.MOD_CONTROL,
+        };
+        HideError();
+        SaveButton.IsEnabled = true;
+    }
+
+    private void SelectDoubleTapCombo(uint modifierBit)
+    {
+        var tag = modifierBit switch
+        {
+            NativeMethods.MOD_CONTROL => "Control",
+            NativeMethods.MOD_SHIFT => "Shift",
+            NativeMethods.MOD_ALT => "Alt",
+            NativeMethods.MOD_WIN => "Win",
+            _ => "Control",
+        };
+        foreach (ComboBoxItem item in DoubleTapCombo.Items)
+        {
+            if ((string)item.Tag == tag)
+            {
+                DoubleTapCombo.SelectedItem = item;
+                return;
+            }
+        }
+    }
+
     private void ShowError(string message)
     {
         ErrorText.Text = message;
@@ -69,6 +142,7 @@ public partial class HotkeyDialog : FluentWindow
 
     private void ResetDefault_Click(object sender, RoutedEventArgs e)
     {
+        ComboModeRadio.IsChecked = true;
         _pendingModifiers = ModifierKeys.Control | ModifierKeys.Shift;
         _pendingKey = Key.V;
         ComboText.Text = HotkeyFormat.Format(
@@ -85,17 +159,19 @@ public partial class HotkeyDialog : FluentWindow
 
     private void Save_Click(object sender, RoutedEventArgs e)
     {
-        var modifiers = HotkeyFormat.ToWin32Modifiers(_pendingModifiers);
-        var virtualKey = HotkeyFormat.ToVirtualKey(_pendingKey);
+        var spec = DoubleTapModeRadio.IsChecked == true
+            ? HotkeySpec.DoubleTap(_pendingDoubleTapModifier)
+            : HotkeySpec.Combo(HotkeyFormat.ToWin32Modifiers(_pendingModifiers), HotkeyFormat.ToVirtualKey(_pendingKey));
 
-        if (!_tryApply(modifiers, virtualKey))
+        if (!_tryApply(spec))
         {
-            ShowError("他のアプリが使用中のため登録できませんでした。別の組み合わせを試してください。");
+            ShowError(spec.IsDoubleTap
+                ? "この設定を登録できませんでした。"
+                : "他のアプリが使用中のため登録できませんでした。別の組み合わせを試してください。");
             return;
         }
 
-        ResultModifiers = modifiers;
-        ResultVirtualKey = virtualKey;
+        Result = spec;
         DialogResult = true;
         Close();
     }

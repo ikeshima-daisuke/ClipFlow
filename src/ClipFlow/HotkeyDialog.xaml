@@ -3,7 +3,7 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  Title="ショートカットの変更"
-                 Width="360" Height="240"
+                 Width="360" Height="300"
                  ResizeMode="NoResize"
                  ShowInTaskbar="False"
                  Topmost="True"
@@ -16,15 +16,24 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="履歴ポップアップを呼び出すショートカットキーを入力してください"
-                   FontSize="13" TextWrapping="Wrap"
+        <StackPanel Grid.Row="0" Orientation="Horizontal">
+            <RadioButton x:Name="ComboModeRadio" Content="組み合わせ" GroupName="HotkeyMode"
+                         IsChecked="True" Checked="ComboModeRadio_Checked" Margin="0,0,16,0" />
+            <RadioButton x:Name="DoubleTapModeRadio" Content="連打" GroupName="HotkeyMode"
+                         Checked="DoubleTapModeRadio_Checked" />
+        </StackPanel>
+
+        <TextBlock Grid.Row="1" x:Name="DescriptionText"
+                   Text="履歴ポップアップを呼び出すショートカットキーを入力してください"
+                   FontSize="13" TextWrapping="Wrap" Margin="0,10,0,0"
                    Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
 
-        <Border Grid.Row="1" x:Name="CaptureBox" Height="52" Margin="0,14,0,0"
+        <Border Grid.Row="2" x:Name="CaptureBox" Height="52" Margin="0,14,0,0"
                 CornerRadius="8"
                 Background="{DynamicResource ControlFillColorDefaultBrush}"
                 BorderBrush="{DynamicResource AccentFillColorDefaultBrush}"
@@ -37,10 +46,18 @@
                        Foreground="{DynamicResource TextFillColorPrimaryBrush}" />
         </Border>
 
-        <TextBlock Grid.Row="2" x:Name="ErrorText" Margin="0,8,0,0" FontSize="12"
+        <ComboBox Grid.Row="2" x:Name="DoubleTapCombo" Margin="0,14,0,0" Height="36"
+                  Visibility="Collapsed" SelectionChanged="DoubleTapCombo_SelectionChanged">
+            <ComboBoxItem Content="Ctrl" Tag="Control" />
+            <ComboBoxItem Content="Shift" Tag="Shift" />
+            <ComboBoxItem Content="Alt" Tag="Alt" />
+            <ComboBoxItem Content="Win" Tag="Win" />
+        </ComboBox>
+
+        <TextBlock Grid.Row="3" x:Name="ErrorText" Margin="0,8,0,0" FontSize="12"
                    TextWrapping="Wrap" Foreground="#E05252" Visibility="Collapsed" />
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+        <StackPanel Grid.Row="5" Orientation="Horizontal" HorizontalAlignment="Right">
             <ui:Button Content="既定に戻す" Margin="0,0,8,0" Click="ResetDefault_Click" />
             <ui:Button Content="キャンセル" Margin="0,0,8,0" Click="Cancel_Click" />
             <ui:Button x:Name="SaveButton" Content="保存" Appearance="Primary"
