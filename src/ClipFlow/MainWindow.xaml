@@ -11,10 +11,17 @@
                  ShowInTaskbar="False"
                  Topmost="True"
                  WindowStartupLocation="Manual"
-                 WindowBackdropType="Acrylic"
+                 WindowBackdropType="None"
                  ExtendsContentIntoTitleBar="True">
 
     <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- 背景・文字色の固定パレット（HotkeyDialogのMica背景には影響させないため、
+                     Application全体ではなくこのウィンドウにだけマージする） -->
+                <ResourceDictionary Source="Themes/ClipFlowPalette.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
         <BooleanToVisibilityConverter x:Key="BoolToVis" />
 
         <!-- 履歴カード用のボタン（既定の枠を消す） -->
@@ -120,6 +127,7 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+        </ResourceDictionary>
     </Window.Resources>
 
     <Grid Margin="0">

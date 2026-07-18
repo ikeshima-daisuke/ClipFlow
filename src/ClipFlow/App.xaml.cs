@@ -41,6 +41,7 @@ public partial class App : Application
         AppPaths.EnsureCreated();
         _store = new HistoryStore();
         _settings = AppSettings.Load();
+        AccentThemeService.Apply(_settings.Accent);
 
         // フォルダ移動などでスタートアップ登録パスが古くなっていたら現在地に合わせて修復
         StartupService.SyncPathIfEnabled();
@@ -184,6 +185,7 @@ public partial class App : Application
         menu.Items.Add(startupItem);
 
         menu.Items.Add(BuildMaxItemsMenu());
+        menu.Items.Add(BuildAccentMenu());
 
         var hotkeyItem = new System.Windows.Controls.MenuItem { Header = "ショートカットを変更..." };
         hotkeyItem.Click += (_, _) => ShowHotkeyDialog();
@@ -248,6 +250,41 @@ public partial class App : Application
                 _store.MaxItems = value ?? 0;
                 _store.ApplyMaxItems();
                 _vm.Reload();
+                foreach (var sibling in items)
+                    sibling.IsChecked = sibling == mi;
+            };
+            items[i] = mi;
+            root.Items.Add(mi);
+        }
+        return root;
+    }
+
+    /// <summary>アクセントカラーを選ぶサブメニュー。</summary>
+    private System.Windows.Controls.MenuItem BuildAccentMenu()
+    {
+        var root = new System.Windows.Controls.MenuItem { Header = "アクセントカラー" };
+        var options = new (string Label, AccentPalette Value)[]
+        {
+            ("ブルー", AccentPalette.Blue),
+            ("インディゴ", AccentPalette.Indigo),
+            ("ティール", AccentPalette.Teal),
+        };
+
+        var items = new System.Windows.Controls.MenuItem[options.Length];
+        for (int i = 0; i < options.Length; i++)
+        {
+            var (label, value) = options[i];
+            var mi = new System.Windows.Controls.MenuItem
+            {
+                Header = label,
+                IsCheckable = true,
+                IsChecked = _settings.Accent == value,
+            };
+            mi.Click += (_, _) =>
+            {
+                _settings.Accent = value;
+                _settings.Save();
+                AccentThemeService.Apply(value);
                 foreach (var sibling in items)
                     sibling.IsChecked = sibling == mi;
             };

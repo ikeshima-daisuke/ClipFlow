@@ -34,12 +34,15 @@ dotnet test  tests/ClipFlow.Tests/ClipFlow.Tests.csproj
 - `ViewModels` — CommunityToolkit.Mvvm（`[ObservableProperty]` / `[RelayCommand]`）。`MainViewModel.FilterKind`（`ClipKind?`、null=すべて）と `SetFilterCommand`（XAMLからは文字列 `"Text"`/`"Image"`/`"Files"`/null で呼ぶ）で種別フィルターを実装。`IsFilterAll`/`IsFilterText`/`IsFilterImage`/`IsFilterFiles` はXAML側のタブ強調表示用の派生bool。ポップアップを開くたびに検索文字列と一緒にリセットされる。`PasteCommand`＝既定（プレーンテキスト）、`PasteWithFormattingCommand`＝書式保持。書式（Html/Rtfのどちらか）を持つ項目だけ `ClipItemViewModel.HasFormatting` が true になり、一覧に「Aa」ボタンを表示（キーボードショートカットだけに頼らない発見しやすさのため）。
 - `HotkeyDialog`（ViewModelなし、コードビハインド直書き） — 「組み合わせ」/「連打」のモードをラジオボタンで切り替える。組み合わせモードは`PreviewKeyDown`でキー入力をキャプチャし修飾キー単体では確定しない、連打モードはコンボボックスでCtrl/Shift/Alt/Winのどれを監視するか選ぶ。「保存」押下時に呼び出し元から渡された `tryApply` コールバック（実体は `App.TryApplyHotkey`。モードが変わらなければ既存トリガーへ`Rebind`、モードが変わる（組み合わせ⇔連打）ときは作り直す）を呼び、実際に登録できた場合だけダイアログを閉じる。失敗時はダイアログを開いたままエラーメッセージを表示し、別の設定を試せるようにする。
 - `MainWindow` は `ResizeMode="CanResize"`（`MinWidth`/`MinHeight` あり）。リサイズ後のサイズは `App.HideWindow()` で `AppSettings.WindowWidth`/`WindowHeight` に保存し、次回起動時（`App.xaml.cs` の `_window` 生成直後）に復元する。作業領域を超える保存値は `SystemParameters.WorkArea` で頭打ちにする。
+- `Themes/ClipFlowPalette.xaml` — MainWindow専用（`MainWindow.xaml`の`Window.Resources`にのみマージ、Application全体には広げない）の背景・文字色の固定パレット。壁紙やAcrylicの半透明合成に依存せず、WCAGコントラスト比を実測して決めた値（text-primary 15.2:1 / secondary 8.7:1 / tertiary 6.1:1、いずれもAA以上）。WPF-UIの既定Darkテーマと同名のキー（`ApplicationBackgroundBrush`等）を後からマージして上書きする。**Applicationスコープでマージしないこと** — `HotkeyDialog`は`WindowBackdropType="Mica"`のままなので、この不透明な背景色が全体に広がるとMica効果が透けなくなる。`MainWindow`側は逆に、背景が不透明になったことで`WindowBackdropType="Acrylic"`の意味がなくなるため`None`に変更済み。
+- `Services/AccentPalette` + `Services/AccentThemeService` — アクセントカラー（ブルー/インディゴ/ティールの3択、既定ティール）。`AccentThemeService.Apply`はWPF-UI公式の`Wpf.Ui.Appearance.ApplicationAccentColorManager.Apply(color, color, color, color)`（4引数オーバーロード）を呼ぶ。**2引数オーバーロード（`Apply(color, theme)`）は使わないこと** — システムのOSアクセントカラーやテーマに応じて入力色を自動的に明るく変換してしまい、指定した色そのものにならない（実際に確認済み: teal `#0A8074`指定で`#5AABA3`になった）。4引数版はsystemAccent/primary/secondary/tertiaryに同じ色を渡すことで、指定した色をそのまま`AccentFillColorDefaultBrush`等へ反映できる。`AppSettings.Accent`に永続化し、トレイメニュー「アクセントカラー」（`App.BuildAccentMenu()`、`BuildMaxItemsMenu()`と同じチェック式サブメニューのパターン）から切替。
 
 ## 落とし穴（テストで固定済み）
 
 - `SendInput` の `INPUT` 構造体の共用体は **MOUSEINPUT を含めて x64 で 40 バイト** にすること。KEYBDINPUT だけだと 32 バイトになり SendInput が無言で失敗して貼り付かない。→ `tests/ClipFlow.Tests/NativeInputTests.cs` で固定。
 - 自前書き込み（コピー/ペースト）の無視は **bool フラグではなく `GetClipboardSequenceNumber` で識別** すること。「次の通知を1回無視」する bool 方式は、こだまが届かないとフラグが立ちっぱなしになり次の本物コピーを取りこぼす。→ `Services/SelfCopyGate` と `tests/ClipFlow.Tests/SelfCopyGateTests.cs` で固定。
 - 修飾キー連打（`ModifierTapDetector`）の判定は、対象キーが押しっぱなしの間に**他キー（別の修飾キー含む）が押されたら「組み合わせ」扱いにして連打から除外する**こと。これがないと Ctrl+C の直後に単発で Ctrl を押しただけで誤爆する。→ `tests/ClipFlow.Tests/ModifierTapDetectorTests.cs` で固定。
+- XAMLの`ResourceDictionary`で定義した`SolidColorBrush`はWPFが自動でフリーズ（読み取り専用化）するため、`Application.Resources["Key"]`から取得したブラシの`.Color`をその場で書き換えようとすると`InvalidOperationException`（実行時にしか気づけない）。切り替え可能な色は、キーへ新しいブラシ/値を代入するか（`Application.Resources["Key"] = ...`）、専用のマネージャAPI（`ApplicationAccentColorManager`等）を使うこと。
 
 ## 方針
 

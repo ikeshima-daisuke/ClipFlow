@@ -28,6 +28,9 @@ public sealed class AppSettings
     /// <summary>履歴ポップアップの最後のサイズ（DIP）。null なら XAML の既定サイズを使う。</summary>
     public double? WindowHeight { get; set; }
 
+    /// <summary>アクセントカラー。トレイメニュー「アクセントカラー」から変更。既定はティール。</summary>
+    public AccentPalette Accent { get; set; } = AccentPalette.Teal;
+
     private static string FilePath => Path.Combine(AppPaths.Root, "settings.json");
 
     public static AppSettings Load()

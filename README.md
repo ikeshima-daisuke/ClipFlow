@@ -26,7 +26,7 @@ Windows 向けの軽量クリップボード履歴マネージャ。コピーし
 - 🎯 **元のカーソル位置へ自動ペースト**（クリック / Enter）
 - 🪶 **保持件数は100/500/1000件・無制限から選択可**（トレイメニュー、変更は即反映）・SQLite永続化・軽快動作
 - ↔️ ポップアップは**自由にリサイズ可能**で、最後のサイズを記憶して次回もそのサイズで開く
-- 🎨 Fluent Design（Acrylic）のスマートなUI、タスクトレイ常駐
+- 🎨 壁紙やOSアクセントカラーに依存しない固定パレットの高コントラストダークUI。アクセントカラーは**ブルー / インディゴ / ティール**から選択可（トレイメニュー、変更は即反映）
 
 ## 操作
 
@@ -40,7 +40,7 @@ Windows 向けの軽量クリップボード履歴マネージャ。コピーし
 | `Esc` | 閉じる |
 | クリック | その項目をプレーンテキストで貼り付け |
 | 一覧の「Aa」ボタン | 書式を保持して貼り付け（書式付きでコピーされた項目にのみ表示） |
-| トレイ右クリック | 記録の一時停止 / 履歴クリア / 起動設定 / 保持件数の上限 / ショートカットを変更 / 終了 |
+| トレイ右クリック | 記録の一時停止 / 履歴クリア / 起動設定 / 保持件数の上限 / アクセントカラー / ショートカットを変更 / 終了 |
 
 ## 動作環境
 
@@ -90,7 +90,9 @@ dotnet test tests/ClipFlow.Tests/ClipFlow.Tests.csproj
 ```
 src/ClipFlow/
   Models/        ClipItem
-  Services/      ClipboardMonitor / GlobalHotkey / HistoryStore / PasteService / ImageHelper / StartupService / AppSettings / HotkeyFormat / NativeMethods
+  Services/      ClipboardMonitor / GlobalHotkey / HistoryStore / PasteService / ImageHelper / StartupService /
+                 AppSettings / HotkeyFormat / NativeMethods / AccentPalette / AccentThemeService
+  Themes/        ClipFlowPalette.xaml（MainWindow専用の固定背景・文字色パレット）
   ViewModels/    MainViewModel / ClipItemViewModel
   MainWindow.*   履歴ポップアップ(Fluent)
   HotkeyDialog.* ショートカットキー変更ダイアログ
