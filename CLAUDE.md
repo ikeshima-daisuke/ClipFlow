@@ -14,7 +14,8 @@ dotnet test  tests/ClipFlow.Tests/ClipFlow.Tests.csproj
 
 ## 重要な開発上の制約（このマシン）
 
-- **実行中アプリが exe/dll をロックする** → 再ビルド前に終了が必要。csproj に `taskkill` するビルド前ターゲットを入れてあるが、別権限で起動された実体は落とせないことがある（その場合はトレイの「終了」で閉じてもらう）。
+- **実行中アプリが exe/dll をロックする** → 再ビルド前に終了が必要。csproj に `taskkill` するビルド前ターゲットを入れてあるが、別権限で起動された実体は落とせないことがある（その場合はトレイの「終了」で閉じてもらう）。**この`taskkill /IM ClipFlow.exe /F`はパスを見ずプロセス名だけで対象を探すため、`%LOCALAPPDATA%\Programs\ClipFlow\`等に置いた自動起動用の安定版も同名なら道連れで終了する。** 開発セッションで`dotnet build`/`dotnet run`した後は、自動起動用の安定版が落ちていないか確認し、必要なら再起動すること。
+- **自動起動（トレイの「Windows起動時に実行」）はDebugビルド（`bin/Debug/...`）ではなく、安定した場所（例: `%LOCALAPPDATA%\Programs\ClipFlow\ClipFlow.exe`）に配置したReleaseビルドを指すこと。** `Environment.ProcessPath`をそのまま登録する仕組みなので、`dotnet run`で動かしている最中にチェックを入れるとリポジトリ内の一時ファイルが登録されてしまい、次の`dotnet build`で消える（上記のtaskkillで）。
 - **PowerShell を Bash 経由で呼ぶのは拒否される**。`tasklist` / `taskkill` / `dotnet` / `reg` など素のコマンドを使う。
 - **自作 exe は computer-use で操作許可を付与できない**（スタートメニュー未登録のため）。GUI の検証は DB(`%APPDATA%\ClipFlow\clipflow.db`) やログなど副作用で間接的に行うか、ユーザーに操作してもらう。
 
