@@ -79,7 +79,7 @@ public partial class App : Application
     }
 
     private static IHotkeyTrigger CreateHotkeyTrigger(IntPtr handle, HotkeySpec spec) => spec.IsDoubleTap
-        ? new ModifierTapHotkey(spec.Modifiers)
+        ? new ModifierTapHotkey(spec.Modifiers, Current.Dispatcher)
         : new GlobalHotkey(handle, spec.Modifiers, spec.VirtualKey);
 
     private HotkeySpec CurrentSpec() => _settings.HotkeyIsDoubleTap
@@ -113,7 +113,7 @@ public partial class App : Application
                 return true;
             }
 
-            var newTap = new ModifierTapHotkey(spec.Modifiers);
+            var newTap = new ModifierTapHotkey(spec.Modifiers, Current.Dispatcher);
             if (!newTap.IsRegistered)
             {
                 newTap.Dispose();

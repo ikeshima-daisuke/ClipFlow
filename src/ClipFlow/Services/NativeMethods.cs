@@ -84,6 +84,47 @@ internal static partial class NativeMethods
     [DllImport("user32.dll")]
     public static extern IntPtr CallNextHookEx(IntPtr hhk, int nCode, IntPtr wParam, IntPtr lParam);
 
+    // ---- 専用スレッドのメッセージループ（低レベルフック用）----
+    // WH_KEYBOARD_LL のコールバックは「フックを張ったスレッド」のメッセージキュー経由で届くため、
+    // そのスレッドにメッセージループが必要。UIスレッドに張るとUI処理の重さでコールバックが
+    // LowLevelHooksTimeout を超え、Windows にフックを無言で外されるので専用スレッドに隔離する。
+    public const uint WM_QUIT = 0x0012;
+    public const uint WM_TIMER = 0x0113;
+
+    [StructLayout(LayoutKind.Sequential)]
+    public struct MSG
+    {
+        public IntPtr hwnd;
+        public uint message;
+        public IntPtr wParam;
+        public IntPtr lParam;
+        public uint time;
+        public POINT pt;
+    }
+
+    /// <summary>戻り値は BOOL だが WM_QUIT で 0、エラーで -1 を返すので int で受ける。</summary>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    public static partial int GetMessageW(out MSG lpMsg, IntPtr hWnd, uint wMsgFilterMin, uint wMsgFilterMax);
+
+    [LibraryImport("user32.dll")]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool TranslateMessage(ref MSG lpMsg);
+
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr DispatchMessageW(ref MSG lpMsg);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool PostThreadMessageW(uint idThread, uint msg, IntPtr wParam, IntPtr lParam);
+
+    /// <summary>hWnd に IntPtr.Zero を渡すとスレッドキューへ WM_TIMER が届く（戻り値が新しいタイマID）。</summary>
+    [LibraryImport("user32.dll", SetLastError = true)]
+    public static partial nuint SetTimer(IntPtr hWnd, nuint nIDEvent, uint uElapse, IntPtr lpTimerFunc);
+
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool KillTimer(IntPtr hWnd, nuint uIDEvent);
+
     // ---- 前面ウィンドウ操作 ----
     [LibraryImport("user32.dll")]
     public static partial IntPtr GetForegroundWindow();
