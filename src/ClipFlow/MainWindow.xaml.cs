@@ -3,6 +3,9 @@ using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Input;
+using System.Windows.Interop;
+using System.Windows.Media;
+using System.Windows.Media.Animation;
 using ClipFlow.Services;
 using ClipFlow.ViewModels;
 using Wpf.Ui.Controls;
@@ -40,13 +43,40 @@ public partial class MainWindow : FluentWindow
         _vm.SearchText = string.Empty;
         _vm.FilterKind = null;
 
+        // 次のフェードインが必ずゼロから始まるよう、表示前にリセットしておく
+        RootGrid.BeginAnimation(OpacityProperty, null);
+        RootScale.BeginAnimation(ScaleTransform.ScaleXProperty, null);
+        RootScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
+        RootGrid.Opacity = 0;
+        RootScale.ScaleX = RootScale.ScaleY = 0.97;
+
         Show();
+
+        // Activate() だけでは前面化に失敗することがある（低レベルフック経由の起動は
+        // WM_HOTKEY と違い OS の SetForegroundWindow 特例を受けられないため）。
+        // 見た目は出ていてもキー入力が直前の前面アプリへ流れたままになり、矢印キー等が効かなくなる。
+        ForegroundActivator.Force(new WindowInteropHelper(this).Handle);
         Activate();
         Topmost = true;
 
+        // フォーカス・選択はアニメーションを待たず即座に確定させ、矢印キー操作をすぐ受け付ける
         SearchBox.Focus();
+        Keyboard.Focus(SearchBox);
         if (HistoryList.Items.Count > 0)
             HistoryList.SelectedIndex = 0;
+
+        PlayShowAnimation();
+    }
+
+    /// <summary>表示直後に重ねる軽いフェード＋拡大アニメーション（入力はブロックしない）。</summary>
+    private void PlayShowAnimation()
+    {
+        var duration = TimeSpan.FromMilliseconds(120);
+        var ease = new QuadraticEase { EasingMode = EasingMode.EaseOut };
+
+        RootGrid.BeginAnimation(OpacityProperty, new DoubleAnimation(0, 1, duration) { EasingFunction = ease });
+        RootScale.BeginAnimation(ScaleTransform.ScaleXProperty, new DoubleAnimation(0.97, 1, duration) { EasingFunction = ease });
+        RootScale.BeginAnimation(ScaleTransform.ScaleYProperty, new DoubleAnimation(0.97, 1, duration) { EasingFunction = ease });
     }
 
     /// <summary>
