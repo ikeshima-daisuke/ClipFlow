@@ -41,32 +41,9 @@ public sealed class PasteService
             return;
 
         // 元のウィンドウを確実に前面へ戻す（キャレット位置はアプリ側が復元する）
-        RestoreForeground(_previousWindow);
+        ForegroundActivator.Force(_previousWindow);
         await Task.Delay(90); // フォーカス遷移とキャレット復帰待ち
         SendCtrlV();
-    }
-
-    /// <summary>
-    /// Windows のフォアグラウンド奪取制限を AttachThreadInput で回避し、
-    /// 元ウィンドウを確実にアクティブへ戻す（Win+V / Ditto と同方式）。
-    /// </summary>
-    private static void RestoreForeground(IntPtr target)
-    {
-        var foreground = NativeMethods.GetForegroundWindow();
-        uint targetThread = NativeMethods.GetWindowThreadProcessId(target, out _);
-        uint foreThread = NativeMethods.GetWindowThreadProcessId(foreground, out _);
-        uint thisThread = NativeMethods.GetCurrentThreadId();
-
-        if (foreThread != targetThread)
-            NativeMethods.AttachThreadInput(foreThread, targetThread, true);
-        NativeMethods.AttachThreadInput(thisThread, targetThread, true);
-
-        NativeMethods.SetForegroundWindow(target);
-        NativeMethods.BringWindowToTop(target);
-
-        NativeMethods.AttachThreadInput(thisThread, targetThread, false);
-        if (foreThread != targetThread)
-            NativeMethods.AttachThreadInput(foreThread, targetThread, false);
     }
 
     private bool WriteClipboard(ClipItem item, bool plainTextOnly)
