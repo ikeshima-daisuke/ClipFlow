@@ -6,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
+using System.Windows.Threading;
 using ClipFlow.Services;
 using ClipFlow.ViewModels;
 using Wpf.Ui.Controls;
@@ -14,16 +15,31 @@ namespace ClipFlow;
 
 public partial class MainWindow : FluentWindow
 {
+    /// <summary>一覧を横切っただけでプレビューが点滅しないよう、ホバー表示に挟む待ち時間。</summary>
+    private static readonly TimeSpan HoverDelay = TimeSpan.FromMilliseconds(250);
+
     private MainViewModel _vm = null!;
     private Action _hide = null!;
+
+    private readonly PreviewTargetResolver<ClipItemViewModel> _preview = new();
+    private readonly DispatcherTimer _hoverTimer = new() { Interval = HoverDelay };
+    private Point _lastMousePosition = new(double.NaN, double.NaN);
 
     public MainWindow()
     {
         InitializeComponent();
+
+        _hoverTimer.Tick += (_, _) =>
+        {
+            _hoverTimer.Stop();
+            if (_preview.CommitPendingHover())
+                RefreshPreview();
+        };
+
         IsVisibleChanged += (_, _) =>
         {
             if (!IsVisible)
-                PreviewPopup.IsOpen = false;
+                ResetPreview();
         };
     }
 
@@ -42,6 +58,7 @@ public partial class MainWindow : FluentWindow
         // 検索・種別フィルターをリセットして毎回フレッシュに
         _vm.SearchText = string.Empty;
         _vm.FilterKind = null;
+        ResetPreview();
 
         // 次のフェードインが必ずゼロから始まるよう、表示前にリセットしておく
         RootGrid.BeginAnimation(OpacityProperty, null);
@@ -191,8 +208,10 @@ public partial class MainWindow : FluentWindow
         // 未選択なら先頭から
         int current = HistoryList.SelectedIndex < 0 ? -1 : HistoryList.SelectedIndex;
         int next = Math.Clamp(current + delta, 0, HistoryList.Items.Count - 1);
+        // 選択（＝プレビュー位置の再計算）より先にスクロールしておく。
+        // SelectionChanged は同期発火するので、逆順だとコンテナ未生成のまま位置を測ることになる。
+        HistoryList.ScrollIntoView(HistoryList.Items[next]);
         HistoryList.SelectedIndex = next;
-        HistoryList.ScrollIntoView(HistoryList.SelectedItem);
     }
 
     /// <summary>検索で絞り込んだら先頭を選択状態にして、Enter ですぐ貼れるようにする。</summary>
@@ -205,10 +224,65 @@ public partial class MainWindow : FluentWindow
         }
     }
 
-    /// <summary>選択した履歴の全文（テキスト）または原寸画像をポップアップに表示する。</summary>
     private void HistoryList_SelectionChanged(object sender, System.Windows.Controls.SelectionChangedEventArgs e)
     {
-        if (HistoryList.SelectedItem is not ClipItemViewModel vm)
+        _hoverTimer.Stop();
+        if (_preview.Select(HistoryList.SelectedItem as ClipItemViewModel))
+            RefreshPreview();
+    }
+
+    /// <summary>
+    /// マウスが乗っている項目をプレビューする。MouseEnter ではなく MouseMove で拾うのは、
+    /// 矢印キーでのスクロールで項目がカーソル下へ流れてきただけの場合を座標で弾くため
+    /// （カーソルが実際に動いていなければキーボード側の選択を優先する）。
+    /// </summary>
+    private void HistoryList_MouseMove(object sender, MouseEventArgs e)
+    {
+        var pos = e.GetPosition(HistoryList);
+        if (pos == _lastMousePosition) return;
+        _lastMousePosition = pos;
+
+        var container = HistoryList.ContainerFromElement(e.OriginalSource as DependencyObject)
+            as System.Windows.Controls.ListBoxItem;
+
+        if (container?.DataContext is not ClipItemViewModel vm)
+        {
+            CancelHover(); // 項目のない余白の上
+            return;
+        }
+
+        if (_preview.HoverEnter(vm))
+            RefreshPreview();
+
+        if (_preview.HasPendingHover)
+        {
+            _hoverTimer.Stop();
+            _hoverTimer.Start();
+        }
+    }
+
+    private void HistoryList_MouseLeave(object sender, MouseEventArgs e) => CancelHover();
+
+    /// <summary>ホバーを取り消して、選択中の項目のプレビューへ戻す。</summary>
+    private void CancelHover()
+    {
+        _hoverTimer.Stop();
+        if (_preview.HoverLeave())
+            RefreshPreview();
+    }
+
+    private void ResetPreview()
+    {
+        _hoverTimer.Stop();
+        _preview.Reset();
+        _lastMousePosition = new Point(double.NaN, double.NaN);
+        PreviewPopup.IsOpen = false;
+    }
+
+    /// <summary>プレビュー対象の全文（テキスト）または原寸画像をポップアップに表示する。</summary>
+    private void RefreshPreview()
+    {
+        if (_preview.Target is not { } vm)
         {
             PreviewPopup.IsOpen = false;
             return;
@@ -225,8 +299,47 @@ public partial class MainWindow : FluentWindow
             PreviewText.Text = vm.FullText;
             PreviewTextScroll.Visibility = Visibility.Visible;
             PreviewImage.Visibility = Visibility.Collapsed;
+            PreviewTextScroll.ScrollToTop(); // 前の項目のスクロール位置を持ち越さない
         }
 
+        UpdatePreviewOffset(vm);
         PreviewPopup.IsOpen = true;
+    }
+
+    /// <summary>
+    /// ポップアップの縦位置を対象の行に合わせる（見ている行の真横に出す）。
+    /// スクロール直後はコンテナがまだ生成されていないことがあるので、
+    /// その場合はレイアウト確定後にもう一度合わせ直す（先頭に飛んだままにしない）。
+    /// </summary>
+    private void UpdatePreviewOffset(ClipItemViewModel vm)
+    {
+        if (TryGetRowOffset(vm, out double offset))
+        {
+            PreviewPopup.VerticalOffset = offset;
+            return;
+        }
+
+        Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
+        {
+            // 待っている間に対象が変わっていたら、そちらの処理に任せる
+            if (ReferenceEquals(_preview.Target, vm) && TryGetRowOffset(vm, out double late))
+                PreviewPopup.VerticalOffset = late;
+        });
+    }
+
+    /// <summary>対象の行の、一覧内での上端位置。コンテナが未生成／非表示なら false。</summary>
+    private bool TryGetRowOffset(ClipItemViewModel vm, out double offset)
+    {
+        offset = 0;
+
+        if (HistoryList.ItemContainerGenerator.ContainerFromItem(vm) is not FrameworkElement container
+            || !container.IsVisible
+            || !container.IsDescendantOf(HistoryList))
+        {
+            return false;
+        }
+
+        offset = Math.Max(0, container.TranslatePoint(new Point(0, 0), HistoryList).Y);
+        return true;
     }
 }

@@ -194,22 +194,28 @@
                      ItemsSource="{Binding Items}"
                      ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                      ScrollViewer.VerticalScrollBarVisibility="Auto"
-                     SelectionChanged="HistoryList_SelectionChanged">
+                     SelectionChanged="HistoryList_SelectionChanged"
+                     MouseMove="HistoryList_MouseMove"
+                     MouseLeave="HistoryList_MouseLeave">
                 <ListBox.ItemContainerStyle>
                     <Style TargetType="ListBoxItem">
                         <Setter Property="Padding" Value="0" />
-                        <Setter Property="Margin" Value="0,2" />
+                        <!-- 行間の余白はコンテナの「外」に出さず、テンプレート内側の Margin で作る。
+                             外側 Margin だとどの ListBoxItem にも属さない帯ができ、マウスが行を
+                             またぐたびにホバー判定が切れてプレビューがチラつく。 -->
+                        <Setter Property="Margin" Value="0" />
                         <Setter Property="Background" Value="Transparent" />
                         <Setter Property="Template">
                             <Setter.Value>
                                 <ControlTemplate TargetType="ListBoxItem">
-                                    <Grid>
-                                        <Border x:Name="SelBg" CornerRadius="8" Background="Transparent" />
+                                    <!-- 行間の余白まで含めてこの行の当たり判定にするため Transparent を敷く -->
+                                    <Grid Background="Transparent">
+                                        <Border x:Name="SelBg" CornerRadius="8" Margin="0,2" Background="Transparent" />
                                         <Border x:Name="AccentBar" Width="3" CornerRadius="2"
-                                                HorizontalAlignment="Left" Margin="2,10"
+                                                HorizontalAlignment="Left" Margin="2,12"
                                                 Background="{DynamicResource AccentFillColorDefaultBrush}"
                                                 Visibility="Collapsed" />
-                                        <ContentPresenter />
+                                        <ContentPresenter Margin="0,2" />
                                     </Grid>
                                     <ControlTemplate.Triggers>
                                         <Trigger Property="IsSelected" Value="True">
@@ -309,7 +315,8 @@
                            Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
             </StackPanel>
 
-            <!-- 選択項目の全文プレビュー -->
+            <!-- 全文プレビュー（マウスオーバー中の項目、無ければ選択中の項目）。
+                 縦位置は対象の行に合わせてコードビハインドから VerticalOffset を更新する。 -->
             <Popup x:Name="PreviewPopup"
                    PlacementTarget="{Binding ElementName=HistoryList}"
                    Placement="Right"
