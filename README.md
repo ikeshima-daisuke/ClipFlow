@@ -47,7 +47,7 @@ Windows 向けの軽量クリップボード履歴マネージャ。コピーし
 ## 動作環境
 
 - Windows 10 / 11
-- .NET 10 ランタイム
+- 配布 zip は .NET ランタイムを同梱した**自己完結型**なので、ランタイムのインストールは不要（ソースからビルドする場合のみ .NET 10 SDK が必要）
 
 ## ビルドと実行
 
@@ -92,8 +92,10 @@ dotnet test tests/ClipFlow.Tests/ClipFlow.Tests.csproj
 ```
 src/ClipFlow/
   Models/        ClipItem
-  Services/      ClipboardMonitor / GlobalHotkey / HistoryStore / PasteService / ImageHelper / StartupService /
-                 AppSettings / HotkeyFormat / NativeMethods / AccentPalette / AccentThemeService
+  Services/      ClipboardMonitor / SelfCopyGate / HistoryStore / PasteService / ForegroundActivator / ImageHelper /
+                 IHotkeyTrigger / GlobalHotkey / ModifierTapHotkey / ModifierTapDetector / HotkeySpec / HotkeyFormat /
+                 PreviewTargetResolver / AppSettings / AppPaths / StartupService / NativeMethods /
+                 AccentPalette / AccentThemeService
   Themes/        ClipFlowPalette.xaml（MainWindow専用の固定背景・文字色パレット）
   ViewModels/    MainViewModel / ClipItemViewModel
   MainWindow.*   履歴ポップアップ(Fluent)
