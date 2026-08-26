@@ -36,3 +36,10 @@ Desktop.ini
 
 # ローカルの一時物
 *.tmp
+
+# Claude Code のセッション状態（実行時に作られる。.claude/settings.json 自体は追跡する）
+.claude/scheduled_tasks.lock
+.claude/settings.local.json
+
+# /daily 実行記録(マシンローカル)
+.claude/last-daily

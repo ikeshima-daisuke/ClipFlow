@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|resume|clear",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 10,
+            "command": "s=\"$HOME/.claude/scripts/project-freshness-check.sh\"; [ -f \"$s\" ] && bash \"$s\"; exit 0"
+          }
+        ]
+      }
+    ]
+  }
+}
