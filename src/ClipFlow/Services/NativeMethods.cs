@@ -180,6 +180,10 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool GetCursorPos(out POINT lpPoint);
 
+    [LibraryImport("user32.dll", SetLastError = true)]
+    [return: MarshalAs(UnmanagedType.Bool)]
+    public static partial bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
+
     // MDT_EFFECTIVE_DPI = 0
     [LibraryImport("Shcore.dll")]
     public static partial int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);

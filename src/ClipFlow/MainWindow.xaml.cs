@@ -18,11 +18,19 @@ public partial class MainWindow : FluentWindow
     /// <summary>一覧を横切っただけでプレビューが点滅しないよう、ホバー表示に挟む待ち時間。</summary>
     private static readonly TimeSpan HoverDelay = TimeSpan.FromMilliseconds(250);
 
+    /// <summary>
+    /// カーソルがウィンドウ本体から出てから実際に隠すまでの猶予。プレビューポップアップは
+    /// 本体の外（右側）に別ウィンドウとして出るため、その間の隙間を横切っただけの一瞬の
+    /// MouseLeave で誤って隠れないよう、少し待ってから最終判定する。
+    /// </summary>
+    private static readonly TimeSpan LeaveHideDelay = TimeSpan.FromMilliseconds(150);
+
     private MainViewModel _vm = null!;
     private Action _hide = null!;
 
     private readonly PreviewTargetResolver<ClipItemViewModel> _preview = new();
     private readonly DispatcherTimer _hoverTimer = new() { Interval = HoverDelay };
+    private readonly DispatcherTimer _leaveHideTimer = new() { Interval = LeaveHideDelay };
     private Point _lastMousePosition = new(double.NaN, double.NaN);
 
     public MainWindow()
@@ -36,10 +44,24 @@ public partial class MainWindow : FluentWindow
                 RefreshPreview();
         };
 
+        _leaveHideTimer.Tick += (_, _) =>
+        {
+            _leaveHideTimer.Stop();
+            // Enter/Leaveのペアだけを信用しない：SearchBoxの既定コンテキストメニュー等、
+            // 許可リストに無い一時ポップアップが開くと、PreviewPopupと同じ仕組み（ポップアップに
+            // よるオクルージョン）でウィンドウのMouseLeaveが誤発火することがある。実際のカーソル
+            // 座標で裏取りしてから隠す。
+            if (IsVisible && !IsCursorInsideWindowOrPreview())
+                _hide();
+        };
+
         IsVisibleChanged += (_, _) =>
         {
             if (!IsVisible)
+            {
+                _leaveHideTimer.Stop();
                 ResetPreview();
+            }
         };
     }
 
@@ -153,6 +175,47 @@ public partial class MainWindow : FluentWindow
         if (IsVisible)
             _hide();
     }
+
+    /// <summary>
+    /// カーソルがウィンドウ本体（またはプレビューポップアップ）から完全に出たら、
+    /// フォーカスを失っていなくても速やかに隠す。クリックせず視線を外しただけで
+    /// Topmost のポップアップが画面に居座り続けるのを防ぐ。
+    /// </summary>
+    private void Window_MouseLeave(object sender, MouseEventArgs e) => ScheduleHide();
+
+    private void Window_MouseEnter(object sender, MouseEventArgs e) => CancelScheduledHide();
+
+    private void PreviewPopup_MouseEnter(object sender, MouseEventArgs e) => CancelScheduledHide();
+
+    private void PreviewPopup_MouseLeave(object sender, MouseEventArgs e) => ScheduleHide();
+
+    private void ScheduleHide()
+    {
+        _leaveHideTimer.Stop();
+        _leaveHideTimer.Start();
+    }
+
+    private void CancelScheduledHide() => _leaveHideTimer.Stop();
+
+    /// <summary>カーソルが実際にウィンドウ本体またはプレビューポップアップの矩形内にあるか。</summary>
+    private bool IsCursorInsideWindowOrPreview()
+    {
+        if (!NativeMethods.GetCursorPos(out var pt))
+            return false;
+
+        if (IsPointInWindow(new WindowInteropHelper(this).Handle, pt))
+            return true;
+
+        return PreviewPopup.IsOpen
+            && PresentationSource.FromVisual(PreviewPopup.Child) is HwndSource popupSource
+            && IsPointInWindow(popupSource.Handle, pt);
+    }
+
+    private static bool IsPointInWindow(IntPtr hwnd, NativeMethods.POINT pt)
+        => hwnd != IntPtr.Zero
+            && NativeMethods.GetWindowRect(hwnd, out var rect)
+            && pt.X >= rect.left && pt.X < rect.right
+            && pt.Y >= rect.top && pt.Y < rect.bottom;
 
     protected override void OnPreviewKeyDown(KeyEventArgs e)
     {

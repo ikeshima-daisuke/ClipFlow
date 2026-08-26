@@ -12,7 +12,9 @@
                  Topmost="True"
                  WindowStartupLocation="Manual"
                  WindowBackdropType="None"
-                 ExtendsContentIntoTitleBar="True">
+                 ExtendsContentIntoTitleBar="True"
+                 MouseEnter="Window_MouseEnter"
+                 MouseLeave="Window_MouseLeave">
 
     <Window.Resources>
         <ResourceDictionary>
@@ -329,7 +331,9 @@
                         CornerRadius="8"
                         Background="{DynamicResource ApplicationBackgroundBrush}"
                         BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
-                        BorderThickness="1">
+                        BorderThickness="1"
+                        MouseEnter="PreviewPopup_MouseEnter"
+                        MouseLeave="PreviewPopup_MouseLeave">
                     <Border.Effect>
                         <DropShadowEffect BlurRadius="16" ShadowDepth="2" Opacity="0.3" />
                     </Border.Effect>
