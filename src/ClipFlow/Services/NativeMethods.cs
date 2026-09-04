@@ -184,6 +184,10 @@ internal static partial class NativeMethods
     [return: MarshalAs(UnmanagedType.Bool)]
     public static partial bool GetWindowRect(IntPtr hWnd, out RECT lpRect);
 
+    /// <summary>指定座標にある最前面のウィンドウ。自前のメニュー等が矩形の外に張り出す場合の帰属判定に使う。</summary>
+    [LibraryImport("user32.dll")]
+    public static partial IntPtr WindowFromPoint(POINT point);
+
     // MDT_EFFECTIVE_DPI = 0
     [LibraryImport("Shcore.dll")]
     public static partial int GetDpiForMonitor(IntPtr hmonitor, int dpiType, out uint dpiX, out uint dpiY);

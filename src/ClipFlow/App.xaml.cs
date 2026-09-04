@@ -318,6 +318,13 @@ public partial class App : Application
 
     private void ShowWindow()
     {
+        // メニューがアクティブな間は SetForegroundWindow が拒否される（Windowsの仕様）。
+        // トレイメニューは StaysOpen=true で項目クリックでも閉じないため、明示的に閉じてから出す。
+        // 開いたまま表示すると前面化に失敗し、WM_ACTIVATE が来ない＝OnDeactivated が永久に
+        // 発火しないポップアップ（＝画面に残り続けるポップアップ）になる。
+        if (_trayMenu != null)
+            _trayMenu.IsOpen = false;
+
         _paste.CaptureForeground();   // 表示前に元の前面ウィンドウを記憶
         _window.ShowAndActivate(_paste.PreviousWindow);
     }
@@ -328,6 +335,8 @@ public partial class App : Application
         _settings.WindowWidth = _window.Width;
         _settings.WindowHeight = _window.Height;
         _settings.Save();
+        // プレビューは別の最上位ウィンドウなので、本体より先に閉じる（閉じ忘れると単独で残る）
+        _window.PrepareForHide();
         _window.Hide();
     }
 

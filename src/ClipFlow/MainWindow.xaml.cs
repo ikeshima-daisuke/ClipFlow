@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Windows;
@@ -25,12 +26,20 @@ public partial class MainWindow : FluentWindow
     /// </summary>
     private static readonly TimeSpan LeaveHideDelay = TimeSpan.FromMilliseconds(150);
 
+    /// <summary>
+    /// 取り残し（フォーカスを失ったのに残っている本体／本体が隠れたのに残っているプレビュー）を
+    /// 見張る間隔。イベントの取りこぼしに備えた保険なので、間隔は粗くてよい。
+    /// </summary>
+    private static readonly TimeSpan DismissGuardInterval = TimeSpan.FromMilliseconds(300);
+
     private MainViewModel _vm = null!;
     private Action _hide = null!;
 
     private readonly PreviewTargetResolver<ClipItemViewModel> _preview = new();
     private readonly DispatcherTimer _hoverTimer = new() { Interval = HoverDelay };
     private readonly DispatcherTimer _leaveHideTimer = new() { Interval = LeaveHideDelay };
+    private readonly DispatcherTimer _dismissGuard = new() { Interval = DismissGuardInterval };
+    private readonly Stopwatch _shownWatch = new();
     private Point _lastMousePosition = new(double.NaN, double.NaN);
 
     public MainWindow()
@@ -46,22 +55,41 @@ public partial class MainWindow : FluentWindow
 
         _leaveHideTimer.Tick += (_, _) =>
         {
-            _leaveHideTimer.Stop();
+            if (!IsVisible)
+            {
+                _leaveHideTimer.Stop();
+                return;
+            }
+
             // Enter/Leaveのペアだけを信用しない：SearchBoxの既定コンテキストメニュー等、
             // 許可リストに無い一時ポップアップが開くと、PreviewPopupと同じ仕組み（ポップアップに
             // よるオクルージョン）でウィンドウのMouseLeaveが誤発火することがある。実際のカーソル
             // 座標で裏取りしてから隠す。
-            if (IsVisible && !IsCursorInsideWindowOrPreview())
-                _hide();
+            // 空振り（カーソルは実は内側だった）ならタイマーは止めず見張り続ける。止めてしまうと、
+            // 一時ポップアップにマウスキャプチャを奪われている間にカーソルが外へ出た場合、
+            // 二度目のMouseLeaveが来ないまま判定の機会が永久に失われる。
+            if (IsCursorInsideWindowOrPreview())
+                return;
+
+            _leaveHideTimer.Stop();
+            _hide();
         };
+
+        _dismissGuard.Tick += (_, _) => RunDismissGuard();
 
         IsVisibleChanged += (_, _) =>
         {
-            if (!IsVisible)
+            if (IsVisible)
+            {
+                // 前面化の猶予は「実際に表示された時点」から測る
+                _shownWatch.Restart();
+            }
+            else
             {
                 _leaveHideTimer.Stop();
                 ResetPreview();
             }
+            UpdateDismissGuard();
         };
     }
 
@@ -197,7 +225,64 @@ public partial class MainWindow : FluentWindow
 
     private void CancelScheduledHide() => _leaveHideTimer.Stop();
 
-    /// <summary>カーソルが実際にウィンドウ本体またはプレビューポップアップの矩形内にあるか。</summary>
+    /// <summary>
+    /// 本体を隠す直前に呼ぶ。プレビューは本体とは別の最上位ウィンドウなので、
+    /// 本体の非表示に紛れて閉じ忘れると単独で画面に残る。<c>Hide()</c> より先に閉じる。
+    /// </summary>
+    public void PrepareForHide() => ResetPreview();
+
+    /// <summary>取り残しの見張りは、見張る対象（本体かプレビュー）が出ている間だけ回す。</summary>
+    private void UpdateDismissGuard()
+    {
+        if (IsVisible || PreviewPopup.IsOpen)
+            _dismissGuard.Start();
+        else
+            _dismissGuard.Stop();
+    }
+
+    private void PreviewPopup_OpenedOrClosed(object sender, EventArgs e) => UpdateDismissGuard();
+
+    /// <summary>
+    /// イベントの取りこぼしで画面に取り残されたポップアップを回収する。
+    /// 判定そのものは <see cref="PopupDismissPolicy"/>（純粋ロジック）に置いてテストで固定している。
+    /// </summary>
+    private void RunDismissGuard()
+    {
+        switch (PopupDismissPolicy.Decide(IsVisible, PreviewPopup.IsOpen, ForegroundIsOurs(), _shownWatch.Elapsed))
+        {
+            case DismissAction.HideWindow:
+                _hide();
+                break;
+
+            case DismissAction.ClosePreview:
+                ResetPreview();
+                break;
+        }
+
+        UpdateDismissGuard();
+    }
+
+    /// <summary>
+    /// OSレベルの前面ウィンドウが自プロセスのものか。トレイメニューやショートカット設定
+    /// ダイアログも自プロセスなので、それらに前面を渡している間は「自分のまま」と見なす。
+    /// 前面ウィンドウが取れない一瞬（デスクトップ切替中など）は誤爆を避けて true を返す。
+    /// </summary>
+    private static bool ForegroundIsOurs()
+    {
+        var foreground = NativeMethods.GetForegroundWindow();
+        if (foreground == IntPtr.Zero)
+            return true;
+
+        NativeMethods.GetWindowThreadProcessId(foreground, out uint pid);
+        return pid == 0 || pid == (uint)Environment.ProcessId;
+    }
+
+    /// <summary>
+    /// カーソルが実際にウィンドウ本体またはプレビューポップアップの矩形内にあるか。
+    /// 矩形に入っていなくても、カーソル直下のウィンドウが自プロセスのものなら内側と見なす
+    /// （SearchBoxの右クリックメニュー等、自前のメニューは本体の矩形の外へ張り出すことがあり、
+    /// そこへカーソルを動かした瞬間に隠れてしまうのを防ぐ）。
+    /// </summary>
     private bool IsCursorInsideWindowOrPreview()
     {
         if (!NativeMethods.GetCursorPos(out var pt))
@@ -206,9 +291,24 @@ public partial class MainWindow : FluentWindow
         if (IsPointInWindow(new WindowInteropHelper(this).Handle, pt))
             return true;
 
-        return PreviewPopup.IsOpen
+        if (PreviewPopup.IsOpen
             && PresentationSource.FromVisual(PreviewPopup.Child) is HwndSource popupSource
-            && IsPointInWindow(popupSource.Handle, pt);
+            && IsPointInWindow(popupSource.Handle, pt))
+        {
+            return true;
+        }
+
+        return IsOwnWindow(NativeMethods.WindowFromPoint(pt));
+    }
+
+    /// <summary>指定ウィンドウが自プロセスのものか（自前のメニュー・ポップアップの判定用）。</summary>
+    private static bool IsOwnWindow(IntPtr hwnd)
+    {
+        if (hwnd == IntPtr.Zero)
+            return false;
+
+        NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
+        return pid == (uint)Environment.ProcessId;
     }
 
     private static bool IsPointInWindow(IntPtr hwnd, NativeMethods.POINT pt)
@@ -345,6 +445,15 @@ public partial class MainWindow : FluentWindow
     /// <summary>プレビュー対象の全文（テキスト）または原寸画像をポップアップに表示する。</summary>
     private void RefreshPreview()
     {
+        // 本体が隠れている間は絶対に開かない。プレビューは別の最上位ウィンドウなので、
+        // ここで開くと本体なしのまま画面に居座る（ホバー待ちタイマーの遅延Tickや、
+        // 履歴の再読み込みに伴う SelectionChanged が非表示中に届くことがある）。
+        if (!IsVisible)
+        {
+            PreviewPopup.IsOpen = false;
+            return;
+        }
+
         if (_preview.Target is not { } vm)
         {
             PreviewPopup.IsOpen = false;
@@ -384,8 +493,8 @@ public partial class MainWindow : FluentWindow
 
         Dispatcher.BeginInvoke(DispatcherPriority.Loaded, () =>
         {
-            // 待っている間に対象が変わっていたら、そちらの処理に任せる
-            if (ReferenceEquals(_preview.Target, vm) && TryGetRowOffset(vm, out double late))
+            // 待っている間に対象が変わった／閉じられていたら、そちらの処理に任せる
+            if (IsVisible && ReferenceEquals(_preview.Target, vm) && TryGetRowOffset(vm, out double late))
                 PreviewPopup.VerticalOffset = late;
         });
     }

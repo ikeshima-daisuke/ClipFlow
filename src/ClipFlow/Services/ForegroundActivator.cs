@@ -23,14 +23,20 @@ internal static class ForegroundActivator
         uint foreThread = NativeMethods.GetWindowThreadProcessId(foreground, out _);
         uint thisThread = NativeMethods.GetCurrentThreadId();
 
+        // 自分自身への接続は必ず失敗する（MainWindow を前面化する経路は呼び出し元＝対象が同じ
+        // UIスレッドなので、条件を付けずに呼ぶと無意味な失敗になる）。
+        bool attachSelf = thisThread != targetThread;
+
         if (foreThread != targetThread)
             NativeMethods.AttachThreadInput(foreThread, targetThread, true);
-        NativeMethods.AttachThreadInput(thisThread, targetThread, true);
+        if (attachSelf)
+            NativeMethods.AttachThreadInput(thisThread, targetThread, true);
 
         NativeMethods.SetForegroundWindow(target);
         NativeMethods.BringWindowToTop(target);
 
-        NativeMethods.AttachThreadInput(thisThread, targetThread, false);
+        if (attachSelf)
+            NativeMethods.AttachThreadInput(thisThread, targetThread, false);
         if (foreThread != targetThread)
             NativeMethods.AttachThreadInput(foreThread, targetThread, false);
     }

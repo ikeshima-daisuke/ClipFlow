@@ -325,7 +325,9 @@
                    HorizontalOffset="8"
                    AllowsTransparency="True"
                    StaysOpen="True"
-                   PopupAnimation="Fade">
+                   PopupAnimation="Fade"
+                   Opened="PreviewPopup_OpenedOrClosed"
+                   Closed="PreviewPopup_OpenedOrClosed">
                 <Border Width="320" MaxHeight="500"
                         Padding="14,12"
                         CornerRadius="8"
