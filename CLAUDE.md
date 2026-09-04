@@ -12,6 +12,15 @@ dotnet test  tests/ClipFlow.Tests/ClipFlow.Tests.csproj
 
 ソリューション: `ClipFlow.slnx`（`src/ClipFlow` と `tests/ClipFlow.Tests`）。
 
+### 配布物（GitHub Releases 用の zip）
+
+```sh
+dotnet publish src/ClipFlow/ClipFlow.csproj -c Release -r win-x64 --self-contained true \
+  -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true
+```
+
+`bin/Release/net10.0-windows/win-x64/publish/` に `ClipFlow.exe`（約182MB）が1つだけ出るので、**その exe 単体**を `ClipFlow-x.y.z-win-x64.zip` に固めて Release へ添付する（pdb は入れない。zip は約73MB）。`IncludeNativeLibrariesForSelfExtract` を落とすと SQLite のネイティブDLLが exe の外に出て単一ファイルにならず、README の「zip を展開して `ClipFlow.exe` をどこか好きな場所に置く」が成立しなくなる。
+
 ## 重要な開発上の制約（このマシン）
 
 - **実行中アプリが exe/dll をロックする** → 再ビルド前に終了が必要。csproj に `taskkill` するビルド前ターゲットを入れてあるが、別権限で起動された実体は落とせないことがある（その場合はトレイの「終了」で閉じてもらう）。**この`taskkill /IM ClipFlow.exe /F`はパスを見ずプロセス名だけで対象を探すため、`%LOCALAPPDATA%\Programs\ClipFlow\`等に置いた自動起動用の安定版も同名なら道連れで終了する。** 開発セッションで`dotnet build`/`dotnet run`した後は、自動起動用の安定版が落ちていないか確認し、必要なら再起動すること。
