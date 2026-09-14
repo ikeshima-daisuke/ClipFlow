@@ -1,5 +1,43 @@
 {
+  "permissions": {
+    "allow": [
+      "Bash(dotnet restore:*)",
+      "Bash(dotnet build:*)",
+      "Bash(dotnet run:*)",
+      "Bash(dotnet test:*)",
+      "Bash(dotnet format:*)",
+      "Bash(dotnet publish:*)"
+    ]
+  },
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "timeout": 60,
+            "command": "payload=$(cat); cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // empty' 2>/dev/null) || cmd=\"$payload\"; [ -n \"$cmd\" ] || cmd=\"$payload\"; case \"$cmd\" in *'git commit'*) envf=$(git diff --cached --name-only 2>/dev/null | grep -E '(^|/)[.]env([.][^/]*)?$' | grep -vE '[.](example|sample)$'); if [ -n \"$envf\" ]; then echo '.envファイルがステージされているためコミットをブロックしました。git restore --staged で外し、.gitignore に追加してください。' >&2; exit 2; fi; if git diff --cached 2>/dev/null | grep '^+' | grep -qE 'sk-[A-Za-z0-9_-]{20,}|AKIA[0-9A-Z]{16}|ghp_[A-Za-z0-9]{36}|github_pat_[A-Za-z0-9_]{22,}|AIza[0-9A-Za-z_-]{35}|xox[baprs]-[A-Za-z0-9-]{10,}|BEGIN [A-Z ]*PRIVATE KEY'; then echo 'APIキー/秘密鍵らしき文字列がステージ済み差分の追加行に含まれるためコミットをブロックしました。該当値を .env へ退避してから再コミットしてください(誤検知の場合は .claude/settings.json の検出パターンを調整)。' >&2; exit 2; fi ;; esac"
+          },
+          {
+            "type": "command",
+            "timeout": 300,
+            "command": "payload=$(cat); cmd=$(printf '%s' \"$payload\" | jq -r '.tool_input.command // empty' 2>/dev/null) || cmd=\"$payload\"; [ -n \"$cmd\" ] || cmd=\"$payload\"; printf '%s' \"$cmd\" | grep -qE '(^|[;&|])[[:space:]]*git[[:space:]]+commit([[:space:]]|$)' || exit 0; target_dir=$(printf '%s' \"$cmd\" | grep -oE 'cd[[:space:]]+(\\.[^ ]*|~[^ ]*|/[^ ]*)' | tail -1 | sed -E 's/^cd[[:space:]]+//'); if [ -n \"$target_dir\" ]; then td=$(eval echo \"$target_dir\" 2>/dev/null); target_root=$(cd \"$td\" 2>/dev/null && git rev-parse --show-toplevel 2>/dev/null); else target_root=$(git rev-parse --show-toplevel 2>/dev/null); fi; project_root=$(git rev-parse --show-toplevel 2>/dev/null); if [ -n \"$target_root\" ] && [ \"$target_root\" != \"$project_root\" ]; then exit 0; fi; dotnet test >/dev/null 2>&1 || { echo 'ビルドまたはテストが失敗しているためコミットをブロックしました。dotnet test で失敗を確認し、修正してから再コミットしてください(dotnet test はビルドを兼ねるため、コンパイルエラーもここで止まります)。' >&2; exit 2; }"
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "command -v jq >/dev/null 2>&1 || exit 0; f=$(jq -r '.tool_input.file_path // empty'); case \"$f\" in *.cs) dotnet format whitespace --folder --include \"$f\" >/dev/null 2>&1 || true ;; esac"
+          }
+        ]
+      }
+    ],
     "SessionStart": [
       {
         "matcher": "startup|resume|clear",

@@ -2,13 +2,29 @@
 
 ClipFlow — Windows 向けクリップボード履歴マネージャ（C# / WPF / .NET 10）。
 
+## 開発フロー(必須)
+
+新機能・修正・バグ修正は必ず `/dev` スキル経由で進めること:
+**要件確認 → テスト先行 → 実装 → 動作確認 → コミット** を基本線に、変更の規模・リスクに応じて設計(ARCHITECTURE.md更新)・コードレビュー・codexレビューが加わる。分類基準(S/M/L)は `/dev` スキルの定義に従う。
+
+- テストのないコードをコミットしない(ビルド/テスト失敗中の `git commit` はhookがブロックする)
+- 構造(クラス追加・責務変更)を変えたら docs/ARCHITECTURE.md を同じコミットで更新する
+- 一区切りついたら `/daily` で整備チェックを実行する
+
 ## ビルド・実行・テスト
 
 ```sh
 dotnet build src/ClipFlow/ClipFlow.csproj
 dotnet run   --project src/ClipFlow/ClipFlow.csproj
 dotnet test  tests/ClipFlow.Tests/ClipFlow.Tests.csproj
+dotnet test                                   # リポジトリ直下でソリューション全体(コミット前hookと同じ)
+dotnet test --collect:"XPlat Code Coverage"   # カバレッジ
+dotnet format                                 # 整形
 ```
+
+- `.cs` は Edit / Write のたびに hook が `dotnet format whitespace` で整形する。改行コードは `.editorconfig` で CRLF に統一している(未指定だと書き換えた行だけ CRLF になり混在する)
+- コミット前 hook の `dotnet test` もビルドを伴うので、下記の `taskkill` により起動中の ClipFlow(自動起動用の安定版を含む)が終了する
+- `internal` の型もテストから参照できる(`AssemblyInfo.cs` の `InternalsVisibleTo`)。テストのためだけに `public` にしない
 
 ソリューション: `ClipFlow.slnx`（`src/ClipFlow` と `tests/ClipFlow.Tests`）。
 
@@ -21,6 +37,10 @@ dotnet publish src/ClipFlow/ClipFlow.csproj -c Release -r win-x64 --self-contain
 
 `bin/Release/net10.0-windows/win-x64/publish/` に `ClipFlow.exe`（約182MB）が1つだけ出るので、**その exe 単体**を `ClipFlow-x.y.z-win-x64.zip` に固めて Release へ添付する（pdb は入れない。zip は約73MB）。`IncludeNativeLibrariesForSelfExtract` を落とすと SQLite のネイティブDLLが exe の外に出て単一ファイルにならず、README の「zip を展開して `ClipFlow.exe` をどこか好きな場所に置く」が成立しなくなる。
 
+## 環境修正の二重反映ルール(重要)
+
+この開発環境は既存プロジェクトにテンプレート `~/.claude/templates/windows-app/` を後付け適用(`/adopt`)したもの。hook・CLAUDE.md 等テンプレート由来の環境を修正するときは、`/dev` スキルの「環境修正の二重反映ルール」に従い、テンプレート側への反映要否を判断して完了報告に明記すること。
+
 ## 重要な開発上の制約（このマシン）
 
 - **実行中アプリが exe/dll をロックする** → 再ビルド前に終了が必要。csproj に `taskkill` するビルド前ターゲットを入れてあるが、別権限で起動された実体は落とせないことがある（その場合はトレイの「終了」で閉じてもらう）。**この`taskkill /IM ClipFlow.exe /F`はパスを見ずプロセス名だけで対象を探すため、`%LOCALAPPDATA%\Programs\ClipFlow\`等に置いた自動起動用の安定版も同名なら道連れで終了する。** 開発セッションで`dotnet build`/`dotnet run`した後は、自動起動用の安定版が落ちていないか確認し、必要なら再起動すること。
@@ -30,7 +50,9 @@ dotnet publish src/ClipFlow/ClipFlow.csproj -c Release -r win-x64 --self-contain
 
 ## アーキテクチャ
 
-- `Services/ClipboardMonitor` — 隠しウィンドウの HWND に `AddClipboardFormatListener` を張り、`WM_CLIPBOARDUPDATE` でテキスト/画像/ファイル（`CF_HDROP`）を取り込む。自前のクリップボード書込みは `SuppressNext` で無視。ファイルは中身をコピーせず**パスのみ**を `ClipItem.Text` に改行区切りで保存（`ClipItem.JoinFilePaths`/`SplitFilePaths`）。テキストは `CF_HTML`/`CF_RTF` があれば生の文字列のまま `ClipItem.Html`/`Rtf` にも保持（オフセット付きヘッダごと再貼付するので再構築不要）。`IsPaused` が true の間はキャプチャしない（トレイの「記録を一時停止」）。
+構成図・モジュール一覧・テストの有無は [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)。ここには各クラスの実装上の注意を記す。
+
+- `Services/ClipboardMonitor` — 隠しウィンドウの HWND に `AddClipboardFormatListener` を張り、`WM_CLIPBOARDUPDATE` でテキスト/画像/ファイル（`CF_HDROP`）を取り込む。自前のクリップボード書込みは `SuppressSelfWrite`（内部で `SelfCopyGate` にクリップボードのシーケンス番号を渡す）で無視。ファイルは中身をコピーせず**パスのみ**を `ClipItem.Text` に改行区切りで保存（`ClipItem.JoinFilePaths`/`SplitFilePaths`）。テキストは `CF_HTML`/`CF_RTF` があれば生の文字列のまま `ClipItem.Html`/`Rtf` にも保持（オフセット付きヘッダごと再貼付するので再構築不要）。`IsPaused` が true の間はキャプチャしない（トレイの「記録を一時停止」）。
 - `Services/IHotkeyTrigger` — 「履歴ポップアップを呼び出すグローバルトリガー」の共通インターフェース（`Pressed`イベント + `IsRegistered`）。`GlobalHotkey`（組み合わせ）と`ModifierTapHotkey`（連打）の2実装を`App`から同じ扱いで持てるようにするためだけの薄い抽象。
 - `Services/GlobalHotkey` — `RegisterHotKey`（既定 `Ctrl+Shift+V`）。`Rebind(modifiers, virtualKey)` で別の組み合わせへ登録し直せる。同じホットキーID(`HotkeyId`)を使い回すため、登録済みなら一度 `UnregisterHotKey` してから登録し直す必要がある点に注意。新しい組み合わせの登録に失敗（他アプリが使用中）した場合は、直前まで有効だった組み合わせへ自動で復帰を試みる（`Rebind`失敗時に無音でホットキーが一切効かなくなる事故を避けるため）。
 - `Services/ModifierTapHotkey` + `Services/ModifierTapDetector` — 修飾キー単体の連打（例: Ctrl連打）でポップアップを呼び出すモード。`RegisterHotKey`は修飾キー単体を扱えないため、`WH_KEYBOARD_LL`の低レベルキーボードフックで押下/離上を拾う。判定ロジック本体は`ModifierTapDetector`（OS非依存の純粋クラス）に切り出してあり、`tests/ClipFlow.Tests/ModifierTapDetectorTests.cs`でテスト可能。「対象キーを押しっぱなしの間に他キー（別の修飾キー含む）が押されたら組み合わせ扱いにして連打判定から除外する」ロジックが肝（Ctrl+Cの直後に単発Ctrlを押しても誤爆しないため）。フックのコールバックデリゲートはインスタンスフィールドで保持し続ける必要がある（GCされるとネイティブ側からのコールバックが不正アドレスを呼ぶ）。`SetWindowsHookEx`/`UnhookWindowsHookEx`/`CallNextHookEx`の3つだけは、他と違い`LibraryImport`ではなく従来の`DllImport`を使う（ソースジェネレータはデリゲート引数の自動マーシャリングに未対応のため）。**フックは専用スレッド（独自メッセージループ）に張り、UIスレッドには張らないこと**（下記の落とし穴参照）。検出時のハンドラ呼び出しもコールバック内では行わず`Dispatcher`でUIスレッドへ非同期投函する。加えて60秒ごとに`WM_TIMER`で張り直し、万一外されていても自動復帰させる。`Dispose`は`WM_QUIT`をフックスレッドへ投げて後始末をそのスレッド自身にさせる（`_ready`待ちがタイムアウトした直後の破棄でフックが取り残されないよう、`_disposed`フラグをスレッド側でも見る）。

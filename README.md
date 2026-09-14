@@ -94,7 +94,7 @@ src/ClipFlow/
   Models/        ClipItem
   Services/      ClipboardMonitor / SelfCopyGate / HistoryStore / PasteService / ForegroundActivator / ImageHelper /
                  IHotkeyTrigger / GlobalHotkey / ModifierTapHotkey / ModifierTapDetector / HotkeySpec / HotkeyFormat /
-                 PreviewTargetResolver / AppSettings / AppPaths / StartupService / NativeMethods /
+                 PreviewTargetResolver / PopupDismissPolicy / AppSettings / AppPaths / StartupService / NativeMethods /
                  AccentPalette / AccentThemeService
   Themes/        ClipFlowPalette.xaml（MainWindow専用の固定背景・文字色パレット）
   ViewModels/    MainViewModel / ClipItemViewModel
