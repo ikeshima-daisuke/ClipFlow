@@ -40,6 +40,7 @@ public partial class MainWindow : FluentWindow
     private readonly DispatcherTimer _leaveHideTimer = new() { Interval = LeaveHideDelay };
     private readonly DispatcherTimer _dismissGuard = new() { Interval = DismissGuardInterval };
     private readonly Stopwatch _shownWatch = new();
+    private NativeMethods.POINT? _cursorAtShow;
     private Point _lastMousePosition = new(double.NaN, double.NaN);
 
     public MainWindow()
@@ -68,7 +69,7 @@ public partial class MainWindow : FluentWindow
             // 空振り（カーソルは実は内側だった）ならタイマーは止めず見張り続ける。止めてしまうと、
             // 一時ポップアップにマウスキャプチャを奪われている間にカーソルが外へ出た場合、
             // 二度目のMouseLeaveが来ないまま判定の機会が永久に失われる。
-            if (IsCursorInsideWindowOrPreview())
+            if (!PopupDismissPolicy.ShouldHideOnMouseLeave(IsCursorInsideWindowOrPreview(), CursorMovedSinceShown()))
                 return;
 
             _leaveHideTimer.Stop();
@@ -116,6 +117,8 @@ public partial class MainWindow : FluentWindow
         RootScale.BeginAnimation(ScaleTransform.ScaleYProperty, null);
         RootGrid.Opacity = 0;
         RootScale.ScaleX = RootScale.ScaleY = 0.97;
+
+        _cursorAtShow = NativeMethods.GetCursorPos(out var shownAt) ? shownAt : null;
 
         Show();
 
@@ -300,6 +303,12 @@ public partial class MainWindow : FluentWindow
 
         return IsOwnWindow(NativeMethods.WindowFromPoint(pt));
     }
+
+    /// <summary>表示した時点からカーソルが実際に動いたか（取得できない場合は動いたものとして従来の判定に任せる）。</summary>
+    private bool CursorMovedSinceShown()
+        => _cursorAtShow is not { } at
+            || !NativeMethods.GetCursorPos(out var now)
+            || now.X != at.X || now.Y != at.Y;
 
     /// <summary>指定ウィンドウが自プロセスのものか（自前のメニュー・ポップアップの判定用）。</summary>
     private static bool IsOwnWindow(IntPtr hwnd)

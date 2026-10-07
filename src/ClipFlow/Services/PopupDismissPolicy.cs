@@ -46,4 +46,12 @@ public static class PopupDismissPolicy
 
         return DismissAction.None;
     }
+
+    /// <summary>
+    /// マウスアウト（<c>MouseLeave</c>）を理由に本体を隠してよいか。矢印キーで選択を動かすとプレビューの
+    /// 位置が変わり、静止したままのカーソルが相対的に本体・プレビューの外になることがある。
+    /// カーソルが表示後に一度も動いていないなら、それはマウスで出たのではないので隠さない。
+    /// </summary>
+    public static bool ShouldHideOnMouseLeave(bool cursorInside, bool cursorMovedSinceShown)
+        => !cursorInside && cursorMovedSinceShown;
 }

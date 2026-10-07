@@ -1,4 +1,4 @@
-using ClipFlow.Services;
+﻿using ClipFlow.Services;
 
 namespace ClipFlow.Tests;
 
@@ -78,5 +78,24 @@ public class PopupDismissPolicyTests
             windowVisible: true, previewOpen: true, foregroundIsOurs: false, sinceShown: AfterGrace);
 
         Assert.Equal(DismissAction.HideWindow, action);
+    }
+
+    [Fact]
+    public void Cursor_outside_but_never_moved_since_shown_does_not_hide()
+    {
+        // キー操作でプレビューが動いただけ（カーソルは静止）で「マウスが出た」と誤判定して閉じない
+        Assert.False(PopupDismissPolicy.ShouldHideOnMouseLeave(cursorInside: false, cursorMovedSinceShown: false));
+    }
+
+    [Fact]
+    public void Cursor_outside_after_real_movement_hides()
+    {
+        Assert.True(PopupDismissPolicy.ShouldHideOnMouseLeave(cursorInside: false, cursorMovedSinceShown: true));
+    }
+
+    [Fact]
+    public void Cursor_inside_never_hides()
+    {
+        Assert.False(PopupDismissPolicy.ShouldHideOnMouseLeave(cursorInside: true, cursorMovedSinceShown: true));
     }
 }
