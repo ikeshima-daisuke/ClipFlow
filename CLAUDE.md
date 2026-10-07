@@ -87,5 +87,8 @@ dotnet publish src/ClipFlow/ClipFlow.csproj -c Release -r win-x64 --self-contain
 
 ## 方針
 
+- **UI(ウィンドウ・コントロール・配色・タイポグラフィ・モーション)を新規作成/変更するときは `design-policy` スキルに従う**(AI の既定デザインを避ける)。色は XAML に直書きせず `ResourceDictionary` の名前付きブラシへ集約する(`Themes/ClipFlowPalette.xaml`)。機械強制(色の直書き lint)は未実装。
+- `reg` の `/ve` 等のスラッシュ引数は Git Bash がパスに変換するので `MSYS_NO_PATHCONV=1` を付ける。
+
 - ネイティブ/OS連携は副作用が再現しにくいので、**サイズ・ロジックをテストで固定**し、UI実機確認と併用する。
 - 変更後は対象プロジェクトをビルドし、テストを通すこと。
