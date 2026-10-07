@@ -170,6 +170,7 @@
         <!-- 検索 -->
         <ui:TextBox Grid.Row="1" Margin="16,4,16,10"
                     x:Name="SearchBox"
+                    FocusVisualStyle="{x:Null}"
                     PlaceholderText="履歴を検索…"
                     Text="{Binding SearchText, UpdateSourceTrigger=PropertyChanged}"
                     TextChanged="SearchBox_TextChanged"
