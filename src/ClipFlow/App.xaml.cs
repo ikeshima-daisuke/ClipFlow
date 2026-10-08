@@ -28,6 +28,15 @@ public partial class App : Application
     {
         base.OnStartup(e);
 
+        // 原因不明の終了を後から追えるよう、未処理例外と起動/終了をログに残す
+        DispatcherUnhandledException += (_, args) =>
+            AppLog.Default.Write("ERROR", "UI スレッドの未処理例外", args.Exception);
+        AppDomain.CurrentDomain.UnhandledException += (_, args) =>
+            AppLog.Default.Write("FATAL", $"未処理例外（終了中={args.IsTerminating}）", args.ExceptionObject as Exception);
+        TaskScheduler.UnobservedTaskException += (_, args) =>
+            AppLog.Default.Write("ERROR", "Task の未観測例外", args.Exception);
+        AppLog.Default.Write("INFO", $"起動 pid={Environment.ProcessId} {Environment.ProcessPath}");
+
         // 二重起動防止
         _singleInstance = new Mutex(true, "ClipFlow_SingleInstance_Mutex", out bool createdNew);
         if (!createdNew)
@@ -342,6 +351,7 @@ public partial class App : Application
 
     protected override void OnExit(ExitEventArgs e)
     {
+        AppLog.Default.Write("INFO", $"終了 code={e.ApplicationExitCode}");
         _hotkey?.Dispose();
         _monitor?.Dispose();
         _tray?.Dispose();

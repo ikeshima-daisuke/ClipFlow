@@ -67,6 +67,7 @@ graph TD
 | `Services/StartupService` | `HKCU\...\Run` での自動起動登録 | なし |
 | `Services/AppSettings` | `%APPDATA%\ClipFlow\settings.json` の読み書き | なし |
 | `Services/AppPaths` | 保存先パスの定義とディレクトリ作成 | なし |
+| `Services/AppLog` | `%APPDATA%\ClipFlow\clipflow.log` への診断ログ(未処理例外・起動/終了)。1MB超で `.old` へ退避、書込み失敗は握りつぶす | あり(`AppLogTests`) |
 | `Services/ImageHelper` | 画像の PNG 保存・サムネイル生成・ハッシュ計算・貼り付け用一時ファイル | なし |
 | `Services/NativeMethods` | P/Invoke 宣言(`LibraryImport` 中心、フック関連3つのみ `DllImport`) | `NativeInputTests`(`INPUT` 構造体サイズ) |
 | `Services/AccentPalette` / `AccentThemeService` | アクセントカラーの定義と WPF-UI への反映 | `AccentThemeServiceTests` |

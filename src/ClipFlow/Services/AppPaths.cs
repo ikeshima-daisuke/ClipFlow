@@ -13,6 +13,8 @@ internal static class AppPaths
 
     public static string DbPath { get; } = Path.Combine(Root, "clipflow.db");
 
+    public static string LogPath { get; } = Path.Combine(Root, "clipflow.log");
+
     public static void EnsureCreated()
     {
         Directory.CreateDirectory(Root);
